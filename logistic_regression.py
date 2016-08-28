@@ -1,8 +1,11 @@
-import numpy as np
-import pandas as pd
 from sklearn.datasets import make_classification
 from sklearn.cross_validation import train_test_split
-from bokeh.charts import Scatter, show
+import numpy as np
+import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.animation
 
 
 class LogisticRegression:
@@ -10,7 +13,7 @@ class LogisticRegression:
         self.G = np.vectorize(self.g)
         self.log = np.vectorize(self.log)
 
-    def fit(self, X, y, num_iter=100, alpha=0.01):
+    def fit(self, X, y, num_iter=100, alpha=0.1):
         """Train the model on (X, y).
         X is a pandas DataFrame and y is a pandas Series (or a list). """
         self.K = len(set(y))  # Number of classes.
@@ -27,14 +30,22 @@ class LogisticRegression:
 
         self.Y = pd.get_dummies(y)  # n by k DataFrame.
 
+        hyperplanes = []
+        accuracies = []
+
         # Gradient descent.
         for i in range(num_iter):
             if i % 10 == 0:
-                # Print the actual loss every 10 iterations.
-                print('Iteration: %i. Loss: %0.2f. Accuracy: %0.2f' %
-                      (i, self._calc_Loss(), self.score(self.X, y)))
+                acc = self.score(self.X, y)
+                # Print the actual loss every 1 iterations.
+                print('Iteration: %i. Loss: %0.2f. Accuracy: %0.5f' %
+                      (i, self._calc_Loss(), acc))
+                hyperplanes.append(self.W.copy())
+                accuracies.append(acc)
             dLossdw = self._calc_dLossdW()
             self.W -= alpha * dLossdw
+
+        return hyperplanes, accuracies
 
     @staticmethod
     def g(z):
@@ -99,22 +110,59 @@ class LogisticRegression:
 if __name__ == '__main__':
     X, y = make_classification(n_samples=1000,
                                n_features=2, n_redundant=0, n_repeated=0,
-                               n_classes=4, n_clusters_per_class=1,
-                               random_state=43)
+                               n_classes=2, n_clusters_per_class=2,
+                               random_state=2019)
     X = pd.DataFrame(X)
     y = pd.Series(y)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20,
                                                         random_state=42)
 
     model = LogisticRegression()
-    model.fit(X_train, y_train)
+    planes, accuracies = model.fit(X_train, y_train)
     print('Accuracy after training (train): %0.2f' %
           model.score(X_train, y_train))
     print('Accuracy after training (test): %0.2f' %
           model.score(X_test, y_test))
 
-    df = pd.concat([pd.DataFrame(X), pd.Series(y)], axis=1)
-    df.columns = ['x', 'y', 'cluster']
-    p = Scatter(df, x='x', y='y', color='cluster')
+    def calc_y(coef, X):
+        # ax+by+c = coef
+        # y = (-c-ax)/b
+        a, b, c = coef
+        y = []
+        for x in X:
+            if b != 0:
+                y.append((-c - a*x)/b)
+            else:
+                y.append(0)
+        return y
 
-    show(p)
+    def init_animation():
+        global text
+        text = ax.text(0.1, 0.1, '', transform=ax.transAxes)
+        global lines
+        lines = []
+        _, K = planes[0].shape
+        for k in range(K):
+            line, = ax.plot(x, np.zeros_like(x))
+            lines.append(line)
+
+    def animate(i):
+        _, K = planes[0].shape
+        text.set_text('Accuracy: %0.5f' % accuracies[i])
+        for k in range(K):
+            lines[k].set_ydata(calc_y(planes[i][:,k], x))
+
+    df = pd.concat([pd.DataFrame(X_train), pd.Series(y_train)], axis=1)
+    df.columns = ['x', 'y', 'cluster']
+
+    fig = plt.figure()
+
+    plt.scatter(df['x'], df['y'], c=df['cluster'], alpha=0.5)
+    ax = fig.add_subplot(111)
+
+    x = np.linspace(df['x'].min(), df['x'].max(), 200)
+
+    ani = matplotlib.animation.FuncAnimation(fig, animate,
+                                             init_func=init_animation,
+                                             frames=len(planes))
+    ani.save('./animation.gif', writer='imagemagick', fps=10)
