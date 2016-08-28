@@ -6,7 +6,6 @@ from bokeh.charts import Scatter, show
 
 def dist(x, y):
     """Euclidean distance between x and y. """
-
     return np.linalg.norm(x-y)
 
 
@@ -74,4 +73,4 @@ if __name__ == '__main__':
     X = [np.array([np.random.uniform(0, 100), np.random.uniform(0, 100)])
          for _ in range(500)]
 
-    clusters = kmeanspp(X, k=5)
+    kmeanspp(X, k=5)
