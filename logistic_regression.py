@@ -37,7 +37,7 @@ class LogisticRegression:
         for i in range(num_iter):
             if i % 10 == 0:
                 acc = self.score(self.X, y)
-                # Print the actual loss every 1 iterations.
+                # Print the actual loss every 10 iterations.
                 print('Iteration: %i. Loss: %0.2f. Accuracy: %0.5f' %
                       (i, self._calc_Loss(), acc))
                 hyperplanes.append(self.W.copy())
