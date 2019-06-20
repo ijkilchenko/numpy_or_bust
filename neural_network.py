@@ -1,5 +1,5 @@
 from sklearn.datasets import make_classification
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 from itertools import product
 import numpy as np
 import pandas as pd
@@ -167,8 +167,8 @@ class NeuralNetwork:
             jac = np.zeros(self.Ws[i].shape)
             # TODO: Vectorize over the examples.
             for j in range(self.n):
-                activations_col = As[i].iloc[j,:].T.reshape((As[i].shape[1],1))
-                errors_row = Ds[i].iloc[j,:].reshape((1,Ds[i].shape[1]))
+                activations_col = As[i].iloc[j,:].T.values.reshape((As[i].shape[1],1))
+                errors_row = Ds[i].iloc[j,:].values.reshape((1,Ds[i].shape[1]))
                 # Partial derivatives for this example and this layer.
                 outer_prod = np.dot(activations_col, errors_row)
                 jac += outer_prod
