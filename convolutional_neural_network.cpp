@@ -5,6 +5,8 @@
 
 using namespace std;
 
+// Good diagram: https://engmrk.com/wp-content/uploads/2018/09/Image-Architecture-of-Convolutional-Neural-Network.png
+
 class Layer {
  public:
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
@@ -31,6 +33,7 @@ class Conv : public Layer {
 
   vector<vector<vector<double>>> filters;
   Conv(int num_input_channels, int num_filters, vector<int> size_per_filter, vector<int> stride_per_filter) {
+    // TODO: Check if there is a better way to save these.
     num_input_channels = num_input_channels;
     num_filters = num_filters;
     size_per_filter = size_per_filter;
@@ -53,14 +56,14 @@ class Conv : public Layer {
 
     // feature map (or activation map) is the output of one filter (or kernel or detector)
     vector<vector<vector<double>>> output_block;
-    for (vector<vector<double>> filter : filters) {  // Should be embarrassingly parallel
-      vector<vector<double>> feature_map = convolve(a, filter, stride_per_filter);
+    int num_filters = filters.size();
+    for (int i = 0; i < num_filters; i++) {  // Should be embarrassingly parallel
+      vector<vector<double>> feature_map = convolve(a, filters[i], stride_per_filter[i]);
     }
   }
 
   // static because this is a self-contained method
-  vector<vector<double>> static convolve(vector<vector<vector<double>>> a, vector<vector<double>> filter,
-                                         vector<int> stride_per_filter) {
+  vector<vector<double>> static convolve(vector<vector<vector<double>>> a, vector<vector<double>> filter, int stride) {
     // a is height x width x num_channels
     // Let's say a is 10x10x3 and filter is 3x3
     // The first convolutional step will use a's top left corner block of size 3x3x3
@@ -76,7 +79,18 @@ class Conv : public Layer {
     int width = a[0].size();
     int depth = a[0][0].size();
 
+    vector<vector<double>> feature_map;
+    int depth_of_a = a.size();
+    for (int depth = 0; depth < depth_of_a; depth++) {
+      vector<vector<double>> feature_map_per_depth = _convole(a[depth], filter, stride);
+    }
+
     //TODO
+  }
+
+  vector<vector<double>> static _convole(vector<vector<double>> a, vector<vector<double>> filter, int stride) {
+    //TODO
+  }
 };
 
 class Pool : public Layer {};
@@ -91,9 +105,11 @@ class ConvNet {
   ConvNet(vector<Layer> layers) { layers = layers; }
 
   int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
+    vector<vector<vector<double>>> a = x;
     for (Layer layer : layers) {
-      vector<vector<vector<double>>> a = layer.h(x);
+      vector<vector<vector<double>>> a = layer.h(a);
     }
+    // Convert the final output into a classification
   }
 };
 
@@ -129,7 +145,7 @@ int main() {
 
   // Intialize model
   // Compound literal, (vector[]), helps initialize an array in function call
-  ConvNet model = ConvNet(vector<Layer>{Conv(1, 4, (vector<int>){3, 5}, (vector<int>){1, 2})});
+  ConvNet model = ConvNet(vector<Layer>{Conv(1, 4, (vector<int>){3, 3, 5, 5}, (vector<int>){1, 1, 2, 2})});
 
   // Do a forward pass with the first "image"
   model.h(X[1]);
