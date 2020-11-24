@@ -5,60 +5,78 @@
 
 using namespace std;
 
-int find_int_in_str(string str) {
-  string output = std::regex_replace(str, std::regex("[^0-9]*([0-9]+).*"),
-                                     std::string("$1"));
-  int id = stoi(output);
-  return id;
-};
-
 class Layer {
  public:
-  // static void rand_init(double **matrix, int rows, int cols) {
-  //   for (int i = 0; i < rows; i++) {
-  //     for (int j = 0; j < cols; j++) {
-  //       //use numbers between -100 and 100
-  //       double n = (double)rand() / RAND_MAX;
-  //       n = -100 + n * 200;
-  //       matrix[i][j] = n;
-  //     }
-  //   }
-  // }
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
 
-  template <size_t rows, size_t cols>
-  static void rand_init(int (&matrix)[rows][cols]) {
-    for (int i = 0; i < rows; i++) {
-      for (int j = 0; j < cols; j++) {
-        //use numbers from 0 to 255
-        matrix[i][j] = rand() % 255;
+  // Helper function
+  static void rand_init(vector<vector<double>> matrix, int height, int width) {
+    for (int i = 0; i < height; i++) {
+      for (int j = 0; j < width; j++) {
+        // use numbers between -100 and 100
+        double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
+        n = n * 200 - 100;
+        matrix[i][j] = n;  // (possibly) change to use float to save memory
       }
     }
   }
-
 };
 
 class Conv : public Layer {
  public:
   int num_input_channels;
   int num_filters;
-  int size_per_filter[];
-  int stride_per_filter[];
+  vector<int> size_per_filter;
+  vector<int> stride_per_filter;
 
-  // int filters[][][];
-  Conv(int num_input_channels, int num_filters, int size_per_filter[],
-       int stride_per_filter[]) {
+  vector<vector<vector<double>>> filters;
+  Conv(int num_input_channels, int num_filters, vector<int> size_per_filter, vector<int> stride_per_filter) {
     num_input_channels = num_input_channels;
     num_filters = num_filters;
     size_per_filter = size_per_filter;
     stride_per_filter = stride_per_filter;
 
     for (int filter_num; filter_num < num_filters; filter_num++) {
-      int width = size_per_filter[filter_num];
+      // Filters are square
       int height = size_per_filter[filter_num];
+      int width = size_per_filter[filter_num];
 
-      double filter[width][height];
+      vector<vector<double>> filter;
+      Layer().rand_init(filter, height, width);
+      filters[filter_num] = filter;
     }
   }
+
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
+    // Input and output is height x width x num_channels
+    // First filter adds to the output of the first channel only, etc.
+
+    // feature map (or activation map) is the output of one filter (or kernel or detector)
+    vector<vector<vector<double>>> output_block;
+    for (vector<vector<double>> filter : filters) {  // Should be embarrassingly parallel
+      vector<vector<double>> feature_map = convolve(a, filter, stride_per_filter);
+    }
+  }
+
+  // static because this is a self-contained method
+  vector<vector<double>> static convolve(vector<vector<vector<double>>> a, vector<vector<double>> filter,
+                                         vector<int> stride_per_filter) {
+    // a is height x width x num_channels
+    // Let's say a is 10x10x3 and filter is 3x3
+    // The first convolutional step will use a's top left corner block of size 3x3x3
+    // For each (i, j, [1, 2, 3]) section of a, we use the same (i, j)th weight of filter to flatten it
+    // In other words, we do a[i][j][1]*w + a[i][j][2]*w + a[i][j][3]*w.
+    // This produces a 3x3x1 which we then element-wise multiply with filter which is also 3x3x1 to
+    // produce 3x3x1 multiplications. These are then all added together to produce one output per
+    // convolutional step.
+    // Reference:
+    // https://stats.stackexchange.com/questions/335321/in-a-convolutional-neural-network-cnn-when-convolving-the-image-is-the-opera
+
+    int height = a.size();
+    int width = a[0].size();
+    int depth = a[0][0].size();
+
+    //TODO
 };
 
 class Pool : public Layer {};
@@ -69,8 +87,13 @@ class Dense : public Layer {};
 
 class ConvNet {
  public:
-  ConvNet(vector<Layer> layers) {
-    vector<Layer> layers;  // vector is a variable length array
+  vector<Layer> layers;
+  ConvNet(vector<Layer> layers) { layers = layers; }
+
+  int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
+    for (Layer layer : layers) {
+      vector<vector<vector<double>>> a = layer.h(x);
+    }
   }
 };
 
@@ -78,19 +101,18 @@ int main() {
   // TEST
   cout << "Starting test...\n";
 
-  string str = "hello123world";
-  int found_int = find_int_in_str(str);
-  if (found_int != 123) {
-    throw;
-  }
-
   int num_images = 100;
-  int X[num_images][28][28];
-  int Y[num_images];
+  vector<vector<vector<vector<double>>>> X;  // num_images x height x width x num_channels
+  int Y[num_images];                         // labels for each example
 
   // Randomly initialize X and Y
   for (int i = 0; i < num_images; i++) {
-    Layer().rand_init(X[i]);
+    for (int j = 0; j < 28; j++) {
+      for (int k = 0; k < 28; k++) {
+        // use numbers from 0 to 255
+        X[i][j][k][1] = rand() % 255;
+      }
+    }
     Y[i] = rand() % 10;  // TODO: Maybe decrease number of classes for the test?
   }
 
@@ -98,19 +120,19 @@ int main() {
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 28; j++) {
       for (int k = 0; k < 28; k++) {
-        cout << X[j][k][i] << ",";
+        cout << X[j][k][i][1] << ",";
       }
       cout << endl;
     }
     cout << endl;
   }
 
-  // Compound literal, (int[]), helps initialize an array in function call
-  Conv(4, (int[]){3, 5}, (int[]){1, 2});
+  // Intialize model
+  // Compound literal, (vector[]), helps initialize an array in function call
+  ConvNet model = ConvNet(vector<Layer>{Conv(1, 4, (vector<int>){3, 5}, (vector<int>){1, 2})});
 
-  // ConvNet model(vector<Layer>{Conv(4, [3, 5], [1, 2]), Pool("max"),
-  // Act("relu"), Dense());
-  // ConvNet model(Layer(), Layer(), Layer());
+  // Do a forward pass with the first "image"
+  model.h(X[1]);
 
   cout << "Test finished!\n";
 
