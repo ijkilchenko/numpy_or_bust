@@ -90,6 +90,23 @@ class Conv : public Layer {
 
   vector<vector<double>> static _convole(vector<vector<double>> a, vector<vector<double>> filter, int stride) {
     //TODO
+    //Maybe switch the order of i and j
+    int i = 0; 
+    int j = 0; 
+    while(i <= a.size() - filter.size()){
+      while(j <= a[0].size() - filter[0].size()){
+        double acc_sum {0};  
+        for(int x = 0; x < filter.size(); ++x){
+          for(int y = 0; y < filter[0].size(); ++y){
+            acc_sum = acc_sum + a[i+x][i+y]*filter[x][y];
+          }
+        }
+
+        j = j + stride; 
+      }
+
+      i = i + stride; 
+    }
   }
 };
 
