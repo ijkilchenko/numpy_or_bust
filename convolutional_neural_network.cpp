@@ -132,7 +132,7 @@ class Conv : public Layer {
     return convolved;
   }
 
-  void static _convole_test() {
+  void static _convolve_test() {
     vector<vector<double>> a = {{1.0, 1.0, 1.0, 0.0, 0.0},
                                 {0.0, 1.0, 1.0, 1.0, 0.0},
                                 {0.0, 0.0, 1.0, 1.0, 1.0},
@@ -176,6 +176,75 @@ class Conv : public Layer {
       }
       cout << endl;
     }
+  }
+
+  void static convolve_test() {
+
+    vector<vector<vector<double>>> a = {
+                                {{1.0, 1.0, 1.0, 0.0, 0.0},
+                                {0.0, 1.0, 1.0, 1.0, 0.0},
+                                {0.0, 0.0, 1.0, 1.0, 1.0},
+                                {0.0, 0.0, 1.0, 1.0, 0.0},
+                                {0.0, 1.0, 1.0, 0.0, 0.0}},
+
+                                {{0.0, 1.0, 0.0, 1.0, 0.0},
+                                {0.0, 0.0, 1.0, 1.0, 1.0},
+                                {0.0, 0.0, 1.0, 1.0, 0.0},
+                                {0.0, 1.0, 1.0, 0.0, 1.0},
+                                {0.0, 1.0, 1.0, 0.0, 0.0}},
+
+                                {{1.0, 0.0, 0.0, 0.0, 0.0},
+                                {0.0, 1.0, 0.0, 0.0, 0.0},
+                                {0.0, 0.0, 1.0, 0.0, 0.0},
+                                {0.0, 0.0, 0.0, 1.0, 0.0},
+                                {0.0, 0.0, 0.0, 0.0, 1.0}}
+                                };
+    vector<vector<double>> filter = {{1, 0},{1, 1}};
+
+    vector<vector<double>> actual_output = convolve(a, filter, 2);
+    vector<vector<double>> expected_output = {{4.0, 5.0}, {1.0, 7.0}};
+
+    for (int i = 0; i < actual_output.size(); i++) {
+      for (int j = 0; j < actual_output[i].size(); j++) {
+        cout << actual_output[i][j] << ",";
+        //if (actual_output[i][j] != expected_output[i][j]) {
+          //throw;
+        //}
+      }
+      cout << endl;
+    }
+
+    vector<vector<vector<double>>> a2 = {{{9.0, 1.0, 9.0, 0.0, 9.0},
+                                {0.0, 1.0, 9.0, 1.0, 0.0},
+                                {9.0, 0.0, 9.0, 1.0, 9.0},
+                                {0.0, 0.0, 9.0, 0.0, 0.0},
+                                {9.0, 1.0, 9.0, 0.0, 9.0}}, 
+                                // {{0.0, 1.0, 1.0, 1.0, 0.0},
+                                // {0.0, 1.0, 0.0, 1.0, 0.0},
+                                // {0.0, 0.0, 1.0, 1.0, 1.0},
+                                // {0.0, 0.0, 1.0, 1.0, 0.0},
+                                // {0.0, 1.0, 1.0, 0.0, 1.0}}, 
+                                // {{1.0, 0.0, 0.0, 0.0, 0.0},
+                                // {0.0, 1.0, 0.0, 0.0, 0.0},
+                                // {0.0, 0.0, 1.0, 0.0, 0.0},
+                                // {0.0, 0.0, 0.0, 1.0, 0.0},
+                                // {0.0, 0.0, 0.0, 0.0, 1.0}}
+                                };
+    vector<vector<double>> filter2 = {{1.0}};
+
+    vector<vector<double>> actual_output2 = convolve(a2, filter2, 2);
+    vector<vector<double>> expected_output2 = {{9.0, 9.0, 9.0},{9.0, 9.0, 9.0}, {9.0, 9.0, 9.0}};
+
+    for (int i = 0; i < actual_output2.size(); i++) {
+      for (int j = 0; j < actual_output2[i].size(); j++) {
+        cout << actual_output2[i][j] << ",";
+        //if (actual_output[i][j] != expected_output[i][j]) {
+          //throw;
+        //}
+      }
+      cout << endl;
+    }
+
   }
 };
 
@@ -229,7 +298,9 @@ int main() {
   //   cout << endl;
   // }
 
-  Conv::_convole_test();
+  //Conv::_convole_test();
+
+  Conv::convolve_test();
 
   // Intialize model
   // Compound literal, (vector[]), helps initialize an array in function call
