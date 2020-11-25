@@ -85,11 +85,15 @@ class Conv : public Layer {
       vector<vector<double>> feature_map_per_depth = _convole(a[depth], filter, stride);
     }
 
-    //TODO
+    // TODO
   }
 
   vector<vector<double>> static _convole(vector<vector<double>> a, vector<vector<double>> filter, int stride) {
-    //TODO
+    // TODO
+  }
+
+  vector<vector<double>> static _convole_test() {
+    
   }
 };
 
