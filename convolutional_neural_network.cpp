@@ -398,7 +398,59 @@ class Relu : public Act {
   }
 };
 
-class Dense : public Layer {};
+class Flatten : public Layer {
+  // Flattens to a row vector
+ public:
+  vector<double> h(vector<vector<vector<double>>> a) {
+    vector<double> flattened;
+    for (int i = 0; i < a.size(); i++) {
+      for (int j = 0; j < a[0].size(); j++) {
+        for (int k = 0; k < a[0][0].size(); k++) {
+          flattened.push_back(a[i][j][k]);  // Add a one element vector to the row
+        }
+      }
+    }
+    return flattened;
+  }
+
+  // Uncomment if we need a column vector instead
+  // // Flattens to a column vector
+  // public:
+  //   vector<vector<double>> h(vector<vector<vector<double>>> a) {
+  //     vector<vector<double>> flattened;
+  //     for (int i = 0; i < a.size(); i ++) {
+  //       for (int j = 0; j < a[0].size(); j++) {
+  //         for (int k = 0; k < a[0][0].size(); k++) {
+  //           flattened.push_back(vector<double>{a[i][j][k]}); // Add a one element vector to the column
+  //         }
+  //       }
+  //     }
+  //     return flattened;
+  //   }
+};
+
+class Dense : public Layer {
+ public:
+  int num_int;
+  int num_out;
+
+  vector<vector<double>> weights;
+  // TODO: add a bias
+
+  Dense(int num_in, int num_out) {
+    num_in = num_in;
+    num_out = num_out;
+
+    rand_init(weights, num_in, num_out);
+  }
+
+  // Possible problems:
+  // Dense's and Flatten's have a different function signature (every other layer takes in a block and outputs a block)
+  // How to reuse an activation function from Act layer in Dense?
+  void h() {
+    // TODO
+  }
+};
 
 class ConvNet {
  public:
