@@ -374,6 +374,30 @@ class Sigmoid : public Act {
   }
 };
 
+class Relu : public Act {
+ public:
+  double activation_func(double z) { return max(0.0, z); }
+
+  void static relu_test() {
+    vector<vector<vector<double>>> z = {{{1, 1}, {2, -2}, {3, -3}}, {{1, 0}, {0, 1}, {1, -1}}};
+    vector<vector<vector<double>>> val = Relu().h(z);
+    vector<vector<vector<double>>> expected = {{{1, 1}, {2, 0}, {3, 0}}, {{1, 0}, {0, 1}, {1, 0}}};
+
+    for (int i = 0; i < z.size(); i++) {
+      for (int j = 0; j < z[0].size(); j++) {
+        for (int k = 0; k < z[0][0].size(); k++) {
+          cout << val[i][j][k] << ", ";
+          if (val[i][j][k] != expected[i][j][k]) {
+            throw(string) "Test failed! " + (string) __FUNCTION__;
+          }
+        }
+      }
+    }
+
+    cout << endl;
+  }
+};
+
 class Dense : public Layer {};
 
 class ConvNet {
@@ -435,9 +459,14 @@ int main() {
     // Depth convolution test
     Conv::convolve_test();
 
+    // Flat max pool test
     MaxPool::_max_pool_test();
 
+    // TODO: make a depth maxpool test if necessary
+
     Sigmoid::sigmoid_test();
+
+    Relu::relu_test();
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
