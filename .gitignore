@@ -90,3 +90,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+.vscode
+convolutional_neural_network
+convolutional_neural_network.exe
