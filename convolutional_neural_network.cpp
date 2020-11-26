@@ -179,27 +179,24 @@ class Conv : public Layer {
   }
 
   void static convolve_test() {
+    vector<vector<vector<double>>> a = {{{1.0, 1.0, 1.0, 0.0, 0.0},
+                                         {0.0, 1.0, 1.0, 1.0, 0.0},
+                                         {0.0, 0.0, 1.0, 1.0, 1.0},
+                                         {0.0, 0.0, 1.0, 1.0, 0.0},
+                                         {0.0, 1.0, 1.0, 0.0, 0.0}},
 
-    vector<vector<vector<double>>> a = {
-                                {{1.0, 1.0, 1.0, 0.0, 0.0},
-                                {0.0, 1.0, 1.0, 1.0, 0.0},
-                                {0.0, 0.0, 1.0, 1.0, 1.0},
-                                {0.0, 0.0, 1.0, 1.0, 0.0},
-                                {0.0, 1.0, 1.0, 0.0, 0.0}},
+                                        {{0.0, 1.0, 0.0, 1.0, 0.0},
+                                         {0.0, 0.0, 1.0, 1.0, 1.0},
+                                         {0.0, 0.0, 1.0, 1.0, 0.0},
+                                         {0.0, 1.0, 1.0, 0.0, 1.0},
+                                         {0.0, 1.0, 1.0, 0.0, 0.0}},
 
-                                {{0.0, 1.0, 0.0, 1.0, 0.0},
-                                {0.0, 0.0, 1.0, 1.0, 1.0},
-                                {0.0, 0.0, 1.0, 1.0, 0.0},
-                                {0.0, 1.0, 1.0, 0.0, 1.0},
-                                {0.0, 1.0, 1.0, 0.0, 0.0}},
-
-                                {{1.0, 0.0, 0.0, 0.0, 0.0},
-                                {0.0, 1.0, 0.0, 0.0, 0.0},
-                                {0.0, 0.0, 1.0, 0.0, 0.0},
-                                {0.0, 0.0, 0.0, 1.0, 0.0},
-                                {0.0, 0.0, 0.0, 0.0, 1.0}}
-                                };
-    vector<vector<double>> filter = {{1, 0},{1, 1}};
+                                        {{1.0, 0.0, 0.0, 0.0, 0.0},
+                                         {0.0, 1.0, 0.0, 0.0, 0.0},
+                                         {0.0, 0.0, 1.0, 0.0, 0.0},
+                                         {0.0, 0.0, 0.0, 1.0, 0.0},
+                                         {0.0, 0.0, 0.0, 0.0, 1.0}}};
+    vector<vector<double>> filter = {{1, 0}, {1, 1}};
 
     vector<vector<double>> actual_output = convolve(a, filter, 2);
     vector<vector<double>> expected_output = {{4.0, 5.0}, {1.0, 7.0}};
@@ -207,44 +204,32 @@ class Conv : public Layer {
     for (int i = 0; i < actual_output.size(); i++) {
       for (int j = 0; j < actual_output[i].size(); j++) {
         cout << actual_output[i][j] << ",";
-        //if (actual_output[i][j] != expected_output[i][j]) {
-          //throw;
-        //}
+        if (actual_output[i][j] != expected_output[i][j]) {
+          throw;
+        }
       }
       cout << endl;
     }
 
     vector<vector<vector<double>>> a2 = {{{9.0, 1.0, 9.0, 0.0, 9.0},
-                                {0.0, 1.0, 9.0, 1.0, 0.0},
-                                {9.0, 0.0, 9.0, 1.0, 9.0},
-                                {0.0, 0.0, 9.0, 0.0, 0.0},
-                                {9.0, 1.0, 9.0, 0.0, 9.0}}, 
-                                // {{0.0, 1.0, 1.0, 1.0, 0.0},
-                                // {0.0, 1.0, 0.0, 1.0, 0.0},
-                                // {0.0, 0.0, 1.0, 1.0, 1.0},
-                                // {0.0, 0.0, 1.0, 1.0, 0.0},
-                                // {0.0, 1.0, 1.0, 0.0, 1.0}}, 
-                                // {{1.0, 0.0, 0.0, 0.0, 0.0},
-                                // {0.0, 1.0, 0.0, 0.0, 0.0},
-                                // {0.0, 0.0, 1.0, 0.0, 0.0},
-                                // {0.0, 0.0, 0.0, 1.0, 0.0},
-                                // {0.0, 0.0, 0.0, 0.0, 1.0}}
-                                };
+                                          {0.0, 1.0, 9.0, 1.0, 0.0},
+                                          {9.0, 0.0, 9.0, 1.0, 9.0},
+                                          {0.0, 0.0, 9.0, 0.0, 0.0},
+                                          {9.0, 1.0, 9.0, 0.0, 9.0}}};
     vector<vector<double>> filter2 = {{1.0}};
 
     vector<vector<double>> actual_output2 = convolve(a2, filter2, 2);
-    vector<vector<double>> expected_output2 = {{9.0, 9.0, 9.0},{9.0, 9.0, 9.0}, {9.0, 9.0, 9.0}};
+    vector<vector<double>> expected_output2 = {{9.0, 9.0, 9.0}, {9.0, 9.0, 9.0}, {9.0, 9.0, 9.0}};
 
     for (int i = 0; i < actual_output2.size(); i++) {
-      for (int j = 0; j < actual_output2[i].size(); j++) {
+      for (int j = 0; j < actual_output2[0].size(); j++) {
         cout << actual_output2[i][j] << ",";
-        //if (actual_output[i][j] != expected_output[i][j]) {
-          //throw;
-        //}
+        if (actual_output2[i][j] != expected_output2[i][j]) {
+          throw;
+        }
       }
       cout << endl;
     }
-
   }
 };
 
@@ -272,34 +257,41 @@ int main() {
   // TEST
   cout << "Starting test...\n";
 
-  // int num_images = 100;
-  // vector<vector<vector<vector<double>>>> X;  // num_images x height x width x num_channels
-  // int Y[num_images];                         // labels for each example
+  int num_images = 100;
+  vector<vector<vector<vector<double>>>> X;  // num_images x height x width x num_channels
+  int Y[num_images];                         // labels for each example
 
-  // // Randomly initialize X and Y
-  // for (int i = 0; i < num_images; i++) {
-  //   for (int j = 0; j < 28; j++) {
-  //     for (int k = 0; k < 28; k++) {
-  //       // use numbers from 0 to 255
-  //       X[i][j][k][1] = rand() % 255; //TODO: Use push_back
-  //     }
-  //   }
-  //   Y[i] = rand() % 10;  // TODO: Maybe decrease number of classes for the test?
-  // }
+  // Randomly initialize X and Y
+  for (int i = 0; i < num_images; i++) {
+    vector<vector<vector<double>>> image;
+    for (int j = 0; j < 28; j++) {
+      vector<vector<double>> row;  // Row has depth (of 1 in this example)
+      for (int k = 0; k < 28; k++) {
+        double f = (double)rand() / RAND_MAX;
+        vector<double> num = {255 * f};  // use numbers from 0 to 255
+        row.push_back(num);
+      }
+      image.push_back(row);
+    }
+    X.push_back(image);
+    Y[i] = rand() % 10;  // TODO: Maybe decrease number of classes for the test?
+  }
 
-  // // Look at first 2 "images"
-  // for (int i = 0; i < 2; i++) {
-  //   for (int j = 0; j < 28; j++) {
-  //     for (int k = 0; k < 28; k++) {
-  //       cout << X[j][k][i][1] << ",";
-  //     }
-  //     cout << endl;
-  //   }
-  //   cout << endl;
-  // }
+  // Look at first 2 "images"
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 28; j++) {
+      for (int k = 0; k < 28; k++) {
+        cout << X[i][j][k][0] << ",";
+      }
+      cout << endl;
+    }
+    cout << endl;
+  }
 
-  //Conv::_convole_test();
+  // Flat convolution test
+  Conv::_convolve_test();
 
+  // Depth convolution test
   Conv::convolve_test();
 
   // Intialize model
