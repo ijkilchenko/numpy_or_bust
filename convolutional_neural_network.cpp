@@ -326,11 +326,9 @@ class MaxPool : public Pool {
   }
 };
 
-class Act : public Layer {};
-
-class Sigmoid : public Act {
+class Act : public Layer {
  public:
-  vector<vector<vector<double>>> static h(vector<vector<vector<double>>> z) {
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> z) {
     // Applied the sigmoid element wise.
     vector<vector<vector<double>>> output_block;
     for (int i = 0; i < z.size(); i++) {
@@ -338,7 +336,7 @@ class Sigmoid : public Act {
       for (int j = 0; j < z[0].size(); j++) {
         vector<double> depth_output;
         for (int k = 0; k < z[0][0].size(); k++) {
-          double activation = 1 / (1 + exp(-z[i][j][k]));
+          double activation = activation_func(z[i][j][k]);
           depth_output.push_back(activation);
         }
         row_output.push_back(depth_output);
@@ -348,9 +346,16 @@ class Sigmoid : public Act {
     return output_block;
   }
 
+  virtual double activation_func(double z) = 0;
+};
+
+class Sigmoid : public Act {
+ public:
+  double activation_func(double z) { return 1 / (1 + exp(-z)); }
+
   void static sigmoid_test() {
     vector<vector<vector<double>>> z = {{{1, 1}, {2, 2}, {3, 3}}, {{1, 0}, {0, 1}, {1, -1}}};
-    vector<vector<vector<double>>> val = h(z);
+    vector<vector<vector<double>>> val = Sigmoid().h(z);
     vector<vector<vector<double>>> expected = {{{0.731059, 0.731059}, {0.880797, 0.880797}, {0.952574, 0.952574}},
                                                {{0.731059, 0.5}, {0.5, 0.731059}, {0.731059, 0.268941}}};
 
