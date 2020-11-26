@@ -340,7 +340,7 @@ class Act : public Layer {
 
 class Sigmoid : public Act {
   public:
-    vector<vector<vector<double>>> h(vector<vector<vector<double>>> z) {
+    vector<vector<vector<double>>> static h(vector<vector<vector<double>>> z) {
       // Applied the sigmoid element wise. 
       vector<vector<vector<double>>> output_block;
       for(int i=0; i < z.size(); i++) {
@@ -356,6 +356,26 @@ class Sigmoid : public Act {
         output_block.push_back(row_output);
       }
       return output_block;
+    }
+
+    void static sigmoid_test(){
+        vector<vector<vector<double>>> z = {{{1, 1}, {2, 2}, {3, 3}}, {{1, 0}, {0,1}, {1,-1}}};
+        vector<vector<vector<double>>> val = h(z); 
+        vector<vector<vector<double>>> expected = {{{0.731059, 0.731059}, {0.880797, 0.880797}, {0.952574, 0.952574}}, {{0.731059, 0.5}, {0.5 ,0.731059}, {0.731059, 0.268941}}};
+
+        for(int i=0; i < z.size(); i++) {
+          for(int j=0; j < z[0].size(); j++) {
+            for(int k=0; k < z[0][0].size(); k++) {
+              cout << val[i][j][k] << ", ";
+              if(abs(val[i][j][k] - expected[i][j][k]) > 0.001){
+                throw; 
+              }
+          }
+        }
+      }
+
+      cout << endl; 
+
     }
 };
 
@@ -424,6 +444,8 @@ int main() {
   // model.h(X[1]);
 
   MaxPool::_max_pool_test();
+
+  Sigmoid::sigmoid_test();
 
   cout << "Test finished!\n";
 
