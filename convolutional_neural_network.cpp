@@ -1,8 +1,9 @@
+#include <math.h>
+
 #include <iostream>
 #include <regex>
 #include <string>
 #include <vector>
-#include <math.h>
 
 using namespace std;
 
@@ -66,7 +67,7 @@ class Conv : public Layer {
     }
   }
 
-  //TODO: Write a test for this function if needed.
+  // TODO: Write a test for this function if needed.
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
     // Input and output is height x width x num_channels
     // First filter adds to the output of the first channel only, etc.
@@ -239,30 +240,28 @@ class Conv : public Layer {
   }
 };
 
-class Pool : public Layer {
-
-};
+class Pool : public Layer {};
 
 class MaxPool : public Pool {
-  public:
-    int height;
-    int width;
-    int stride;
+ public:
+  int height;
+  int width;
+  int stride;
 
-    // No num_input_channels variable is necessary because no weights are allocated by Pooling
-    MaxPool(int size) {
-      height = size;
-      width = size;
-      stride = size;
-    }
+  // No num_input_channels variable is necessary because no weights are allocated by Pooling
+  MaxPool(int size) {
+    height = size;
+    width = size;
+    stride = size;
+  }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
     vector<vector<vector<double>>> output_block;
 
     int num_input_channels = a.size();
 
-    for (int i = 0; i < num_input_channels; i++) {  // Should be embarrassingly parallel
-      vector<vector<double>> pool_map = _max_pool(a[i], height, width, stride); // Max pool by later
+    for (int i = 0; i < num_input_channels; i++) {                               // Should be embarrassingly parallel
+      vector<vector<double>> pool_map = _max_pool(a[i], height, width, stride);  // Max pool by later
       output_block.push_back(pool_map);
     }
     return output_block;
@@ -277,9 +276,10 @@ class MaxPool : public Pool {
       vector<double> pooled_row;
 
       while (j <= a[0].size() - width) {
-        double max_value = numeric_limits<double>::lowest();;
-        for (int x = 0; x < height && i+x < a.size(); ++x) {
-          for (int y = 0; y < width && j+y <a[0].size(); ++y) {
+        double max_value = numeric_limits<double>::lowest();
+        ;
+        for (int x = 0; x < height && i + x < a.size(); ++x) {
+          for (int y = 0; y < width && j + y < a[0].size(); ++y) {
             if (a[i + x][j + y] > max_value) {
               max_value = a[i + x][j + y];
             }
@@ -295,88 +295,78 @@ class MaxPool : public Pool {
     return pool_map;
   }
 
+  void static _max_pool_test() {
+    vector<vector<double>> a = {{0, 1, 2, 3}, {4, 5, 6, 7}, {1, 1, 1, 1}, {9, 0, 6, 3}};
 
-  void static _max_pool_test(){
-    vector<vector<double>> a = {{0, 1, 2, 3},
-                                {4, 5, 6, 7}, 
-                                {1, 1, 1, 1}, 
-                                {9, 0, 6, 3}};
+    vector<vector<double>> test_val = _max_pool(a, 2, 2, 2);
+    vector<vector<double>> expected_val = {{5, 7}, {9, 6}};
+    for (int i = 0; i < test_val.size(); ++i) {
+      for (int j = 0; j < test_val[0].size(); ++j) {
+        cout << test_val[i][j] << ",";
+        if (test_val[i][j] != expected_val[i][j]) {
+          throw;
+        }
+      }
+      cout << endl;
+    }
 
-   vector<vector<double>> test_val = _max_pool(a, 2, 2, 2);
-   vector<vector<double>> expected_val = {{5, 7}, {9, 6}};
-   for(int i = 0; i < test_val.size(); ++i){
-     for(int j = 0; j < test_val[0].size(); ++j){
-       cout << test_val[i][j] << ",";
-       if(test_val[i][j] != expected_val[i][j]){
-         throw;
-       }
-     }
-     cout << endl;
-   }
+    vector<vector<double>> a2 = {{0, 1, 2, 3}, {4, 5, 6, 7}, {1, 1, 1, 1}, {9, 0, 6, 3}};
 
-   vector<vector<double>> a2 = {{0, 1, 2, 3},
-                                {4, 5, 6, 7}, 
-                                {1, 1, 1, 1}, 
-                                {9, 0, 6, 3}};
-
-   vector<vector<double>> test_val2 = _max_pool(a2, 1, 2, 3);
-   vector<vector<double>> expected_val2 = {{1},{9}};
-   for(int i = 0; i < test_val2.size(); ++i){
-     for(int j = 0; j < test_val2[0].size(); ++j){
-       cout << test_val2[i][j] << ",";
-       if(test_val2[i][j] != expected_val2[i][j]){
-         throw;
-       }
-     }
-     cout << endl;
-   }
-
+    vector<vector<double>> test_val2 = _max_pool(a2, 1, 2, 3);
+    vector<vector<double>> expected_val2 = {{1}, {9}};
+    for (int i = 0; i < test_val2.size(); ++i) {
+      for (int j = 0; j < test_val2[0].size(); ++j) {
+        cout << test_val2[i][j] << ",";
+        if (test_val2[i][j] != expected_val2[i][j]) {
+          throw;
+        }
+      }
+      cout << endl;
+    }
   }
 };
 
-class Act : public Layer {
-
-};
+class Act : public Layer {};
 
 class Sigmoid : public Act {
-  public:
-    vector<vector<vector<double>>> static h(vector<vector<vector<double>>> z) {
-      // Applied the sigmoid element wise. 
-      vector<vector<vector<double>>> output_block;
-      for(int i=0; i < z.size(); i++) {
-        vector<vector<double>> row_output;
-        for(int j=0; j < z[0].size(); j++) {
-          vector<double> depth_output;
-          for(int k=0; k < z[0][0].size(); k++) {
-            double activation = 1 / (1 + exp(-z[i][j][k]));
-            depth_output.push_back(activation);
-          }
-          row_output.push_back(depth_output);
+ public:
+  vector<vector<vector<double>>> static h(vector<vector<vector<double>>> z) {
+    // Applied the sigmoid element wise.
+    vector<vector<vector<double>>> output_block;
+    for (int i = 0; i < z.size(); i++) {
+      vector<vector<double>> row_output;
+      for (int j = 0; j < z[0].size(); j++) {
+        vector<double> depth_output;
+        for (int k = 0; k < z[0][0].size(); k++) {
+          double activation = 1 / (1 + exp(-z[i][j][k]));
+          depth_output.push_back(activation);
         }
-        output_block.push_back(row_output);
+        row_output.push_back(depth_output);
       }
-      return output_block;
+      output_block.push_back(row_output);
+    }
+    return output_block;
+  }
+
+  void static sigmoid_test() {
+    vector<vector<vector<double>>> z = {{{1, 1}, {2, 2}, {3, 3}}, {{1, 0}, {0, 1}, {1, -1}}};
+    vector<vector<vector<double>>> val = h(z);
+    vector<vector<vector<double>>> expected = {{{0.731059, 0.731059}, {0.880797, 0.880797}, {0.952574, 0.952574}},
+                                               {{0.731059, 0.5}, {0.5, 0.731059}, {0.731059, 0.268941}}};
+
+    for (int i = 0; i < z.size(); i++) {
+      for (int j = 0; j < z[0].size(); j++) {
+        for (int k = 0; k < z[0][0].size(); k++) {
+          cout << val[i][j][k] << ", ";
+          if (abs(val[i][j][k] - expected[i][j][k]) > 0.001) {
+            throw;
+          }
+        }
+      }
     }
 
-    void static sigmoid_test(){
-        vector<vector<vector<double>>> z = {{{1, 1}, {2, 2}, {3, 3}}, {{1, 0}, {0,1}, {1,-1}}};
-        vector<vector<vector<double>>> val = h(z); 
-        vector<vector<vector<double>>> expected = {{{0.731059, 0.731059}, {0.880797, 0.880797}, {0.952574, 0.952574}}, {{0.731059, 0.5}, {0.5 ,0.731059}, {0.731059, 0.268941}}};
-
-        for(int i=0; i < z.size(); i++) {
-          for(int j=0; j < z[0].size(); j++) {
-            for(int k=0; k < z[0][0].size(); k++) {
-              cout << val[i][j][k] << ", ";
-              if(abs(val[i][j][k] - expected[i][j][k]) > 0.001){
-                throw; 
-              }
-          }
-        }
-      }
-
-      cout << endl; 
-
-    }
+    cout << endl;
+  }
 };
 
 class Dense : public Layer {};
