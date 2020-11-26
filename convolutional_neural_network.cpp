@@ -2,6 +2,7 @@
 #include <regex>
 #include <string>
 #include <vector>
+#include <math.h>
 
 using namespace std;
 
@@ -333,7 +334,30 @@ class MaxPool : public Pool {
   }
 };
 
-class Act : public Layer {};
+class Act : public Layer {
+
+};
+
+class Sigmoid : public Act {
+  public:
+    vector<vector<vector<double>>> h(vector<vector<vector<double>>> z) {
+      // Applied the sigmoid element wise. 
+      vector<vector<vector<double>>> output_block;
+      for(int i=0; i < z.size(); i++) {
+        vector<vector<double>> row_output;
+        for(int j=0; j < z[0].size(); j++) {
+          vector<double> depth_output;
+          for(int k=0; k < z[0][0].size(); k++) {
+            double activation = 1 / (1 + exp(-z[i][j][k]));
+            depth_output.push_back(activation);
+          }
+          row_output.push_back(depth_output);
+        }
+        output_block.push_back(row_output);
+      }
+      return output_block;
+    }
+};
 
 class Dense : public Layer {};
 
