@@ -267,18 +267,18 @@ class MaxPool : public Pool {
     return output_block;
   }
 
-  vector<vector<double>> _max_pool(vector<vector<double>> a, int width, int height, int stride) {
+  vector<vector<double>> static _max_pool(vector<vector<double>> a, int height, int width, int stride) {
     int i = 0;
     int j = 0;
 
     vector<vector<double>> pool_map;
-    while (i <= a.size() - width) {
+    while (i <= a.size() - height) {
       vector<double> pooled_row;
 
-      while (j <= a[0].size() - height) {
+      while (j <= a[0].size() - width) {
         double max_value = numeric_limits<double>::lowest();;
-        for (int x = 0; x < height; ++x) {
-          for (int y = 0; y < width; ++y) {
+        for (int x = 0; x < height && i+x < a.size(); ++x) {
+          for (int y = 0; y < width && j+y <a[0].size(); ++y) {
             if (a[i + x][j + y] > max_value) {
               max_value = a[i + x][j + y];
             }
@@ -292,6 +292,44 @@ class MaxPool : public Pool {
       i = i + stride;
     }
     return pool_map;
+  }
+
+
+  void static _max_pool_test(){
+    vector<vector<double>> a = {{0, 1, 2, 3},
+                                {4, 5, 6, 7}, 
+                                {1, 1, 1, 1}, 
+                                {9, 0, 6, 3}};
+
+   vector<vector<double>> test_val = _max_pool(a, 2, 2, 2);
+   vector<vector<double>> expected_val = {{5, 7}, {9, 6}};
+   for(int i = 0; i < test_val.size(); ++i){
+     for(int j = 0; j < test_val[0].size(); ++j){
+       cout << test_val[i][j] << ",";
+       if(test_val[i][j] != expected_val[i][j]){
+         throw;
+       }
+     }
+     cout << endl;
+   }
+
+   vector<vector<double>> a2 = {{0, 1, 2, 3},
+                                {4, 5, 6, 7}, 
+                                {1, 1, 1, 1}, 
+                                {9, 0, 6, 3}};
+
+   vector<vector<double>> test_val2 = _max_pool(a2, 1, 2, 3);
+   vector<vector<double>> expected_val2 = {{1},{9}};
+   for(int i = 0; i < test_val2.size(); ++i){
+     for(int j = 0; j < test_val2[0].size(); ++j){
+       cout << test_val2[i][j] << ",";
+       if(test_val2[i][j] != expected_val2[i][j]){
+         throw;
+       }
+     }
+     cout << endl;
+   }
+
   }
 };
 
@@ -317,7 +355,7 @@ int main() {
   // TEST
   cout << "Starting test...\n";
 
-  int num_images = 100;
+  const int num_images = 100;
   vector<vector<vector<vector<double>>>> X;  // num_images x height x width x num_channels
   int Y[num_images];                         // labels for each example
 
@@ -360,6 +398,8 @@ int main() {
 
   // Do a forward pass with the first "image"
   // model.h(X[1]);
+
+  MaxPool::_max_pool_test();
 
   cout << "Test finished!\n";
 
