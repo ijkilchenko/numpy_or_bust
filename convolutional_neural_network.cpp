@@ -22,6 +22,20 @@ class Layer {
       }
     }
   }
+
+  vector<vector<double>> static add_matrices(vector<vector<double>> a, vector<vector<double>> b) {
+    vector<vector<double>> c;
+
+    for (int i = 0; i < a.size(); i++) {
+      vector<double> c_column;
+      for (int j = 0; j < a[0].size(); j++) {
+        c_column.push_back(a[i][j] + b[i][j]);
+      }
+      c.push_back(c_column);
+    }
+
+    return c;
+  }
 };
 
 class Conv : public Layer {
@@ -32,6 +46,7 @@ class Conv : public Layer {
   vector<int> stride_per_filter;
 
   vector<vector<vector<double>>> filters;
+  // TODO: Add a bias per filter.
   Conv(int num_input_channels, int num_filters, vector<int> size_per_filter, vector<int> stride_per_filter) {
     // TODO: Check if there is a better way to save these.
     num_input_channels = num_input_channels;
@@ -50,17 +65,20 @@ class Conv : public Layer {
     }
   }
 
-  // vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
-  //   // Input and output is height x width x num_channels
-  //   // First filter adds to the output of the first channel only, etc.
+  //TODO: Write a test for this function if needed.
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
+    // Input and output is height x width x num_channels
+    // First filter adds to the output of the first channel only, etc.
 
-  //   // feature map (or activation map) is the output of one filter (or kernel or detector)
-  //   vector<vector<vector<double>>> output_block;
-  //   int num_filters = filters.size();
-  //   for (int i = 0; i < num_filters; i++) {  // Should be embarrassingly parallel
-  //     vector<vector<double>> feature_map = convolve(a, filters[i], stride_per_filter[i]);
-  //   }
-  // }
+    // feature map (or activation map) is the output of one filter (or kernel or detector)
+    vector<vector<vector<double>>> output_block;
+    int num_filters = filters.size();
+    for (int i = 0; i < num_filters; i++) {  // Should be embarrassingly parallel
+      vector<vector<double>> feature_map = convolve(a, filters[i], stride_per_filter[i]);
+      output_block.push_back(feature_map);
+    }
+    return output_block;
+  }
 
   // static because this is a self-contained method
   vector<vector<double>> static convolve(vector<vector<vector<double>>> a, vector<vector<double>> filter, int stride) {
@@ -90,28 +108,15 @@ class Conv : public Layer {
     return feature_map;
   }
 
-  vector<vector<double>> static add_matrices(vector<vector<double>> a, vector<vector<double>> b) {
-    vector<vector<double>> c;
-
-    for (int i = 0; i < a.size(); i++) {
-      vector<double> c_column;
-      for (int j = 0; j < a[0].size(); j++) {
-        c_column.push_back(a[i][j] + b[i][j]);
-      }
-      c.push_back(c_column);
-    }
-
-    return c;
-  }
-
   vector<vector<double>> static _convolve(vector<vector<double>> a, vector<vector<double>> filter, int stride) {
-    // Maybe switch the order of i and j
+    // Row major seems faster
+    // https://stackoverflow.com/questions/33722520/why-is-iterating-2d-array-row-major-faster-than-column-major
     int i = 0;
     int j = 0;
 
     vector<vector<double>> convolved;
     while (i <= a.size() - filter.size()) {
-      vector<double> convolved_column;
+      vector<double> convolved_row;
 
       while (j <= a[0].size() - filter[0].size()) {
         double acc_sum{0.0};
@@ -120,11 +125,11 @@ class Conv : public Layer {
             acc_sum = acc_sum + a[i + x][j + y] * filter[x][y];
           }
         }
-        convolved_column.push_back(acc_sum);
+        convolved_row.push_back(acc_sum);
 
         j = j + stride;
       }
-      convolved.push_back(convolved_column);
+      convolved.push_back(convolved_row);
       j = 0;
 
       i = i + stride;
@@ -233,7 +238,62 @@ class Conv : public Layer {
   }
 };
 
-class Pool : public Layer {};
+class Pool : public Layer {
+
+};
+
+class MaxPool : public Pool {
+  public:
+    int height;
+    int width;
+    int stride;
+
+    // No num_input_channels variable is necessary because no weights are allocated by Pooling
+    MaxPool(int size) {
+      height = size;
+      width = size;
+      stride = size;
+    }
+
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
+    vector<vector<vector<double>>> output_block;
+
+    int num_input_channels = a.size();
+
+    for (int i = 0; i < num_input_channels; i++) {  // Should be embarrassingly parallel
+      vector<vector<double>> pool_map = _max_pool(a[i], height, width, stride); // Max pool by later
+      output_block.push_back(pool_map);
+    }
+    return output_block;
+  }
+
+  vector<vector<double>> _max_pool(vector<vector<double>> a, int width, int height, int stride) {
+    int i = 0;
+    int j = 0;
+
+    vector<vector<double>> pool_map;
+    while (i <= a.size() - width) {
+      vector<double> pooled_row;
+
+      while (j <= a[0].size() - height) {
+        double max_value = numeric_limits<double>::lowest();;
+        for (int x = 0; x < height; ++x) {
+          for (int y = 0; y < width; ++y) {
+            if (a[i + x][j + y] > max_value) {
+              max_value = a[i + x][j + y];
+            }
+          }
+        }
+        pooled_row.push_back(max_value);
+        j = j + stride;
+      }
+      pool_map.push_back(pooled_row);
+      j = 0;
+      i = i + stride;
+    }
+    return pool_map;
+  }
+};
 
 class Act : public Layer {};
 
