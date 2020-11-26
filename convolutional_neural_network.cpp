@@ -154,7 +154,7 @@ class Conv : public Layer {
       for (int j = 0; j < actual_output[i].size(); j++) {
         cout << actual_output[i][j] << ",";
         if (actual_output[i][j] != expected_output[i][j]) {
-          throw;
+          throw(string) "Test failed! " + (string) __FUNCTION__;
         }
       }
       cout << endl;
@@ -178,7 +178,7 @@ class Conv : public Layer {
       for (int j = 0; j < actual_output2[i].size(); j++) {
         cout << actual_output2[i][j] << ",";
         if (actual_output2[i][j] != expected_output2[i][j]) {
-          throw;
+          throw(string) "Test failed! " + (string) __FUNCTION__;
         }
       }
       cout << endl;
@@ -212,7 +212,7 @@ class Conv : public Layer {
       for (int j = 0; j < actual_output[i].size(); j++) {
         cout << actual_output[i][j] << ",";
         if (actual_output[i][j] != expected_output[i][j]) {
-          throw;
+          throw(string) "Test failed! " + (string) __FUNCTION__;
         }
       }
       cout << endl;
@@ -232,7 +232,7 @@ class Conv : public Layer {
       for (int j = 0; j < actual_output2[0].size(); j++) {
         cout << actual_output2[i][j] << ",";
         if (actual_output2[i][j] != expected_output2[i][j]) {
-          throw;
+          throw(string) "Test failed! " + (string) __FUNCTION__;
         }
       }
       cout << endl;
@@ -248,7 +248,7 @@ class MaxPool : public Pool {
   int width;
   int stride;
 
-  // No num_input_channels variable is necessary because no weights are allocated by Pooling
+  // No num_input_channels variable is necessary because no weights are allocated for Pooling
   MaxPool(int size) {
     height = size;
     width = size;
@@ -304,7 +304,7 @@ class MaxPool : public Pool {
       for (int j = 0; j < test_val[0].size(); ++j) {
         cout << test_val[i][j] << ",";
         if (test_val[i][j] != expected_val[i][j]) {
-          throw;
+          throw(string) "Test failed! " + (string) __FUNCTION__;
         }
       }
       cout << endl;
@@ -318,7 +318,7 @@ class MaxPool : public Pool {
       for (int j = 0; j < test_val2[0].size(); ++j) {
         cout << test_val2[i][j] << ",";
         if (test_val2[i][j] != expected_val2[i][j]) {
-          throw;
+          throw(string) "Test failed! " + (string) __FUNCTION__;
         }
       }
       cout << endl;
@@ -358,8 +358,8 @@ class Sigmoid : public Act {
       for (int j = 0; j < z[0].size(); j++) {
         for (int k = 0; k < z[0][0].size(); k++) {
           cout << val[i][j][k] << ", ";
-          if (abs(val[i][j][k] - expected[i][j][k]) > 0.001) {
-            throw;
+          if (abs(val[i][j][k] - expected[i][j][k]) > 0.0001) {
+            throw(string) "Test failed! " + (string) __FUNCTION__;
           }
         }
       }
@@ -386,7 +386,8 @@ class ConvNet {
 };
 
 int main() {
-  // TEST
+  // TESTS
+  // set up
   cout << "Starting test...\n";
 
   const int num_images = 100;
@@ -420,11 +421,22 @@ int main() {
     cout << endl;
   }
 
-  // Flat convolution test
-  Conv::_convolve_test();
+  // tests
 
-  // Depth convolution test
-  Conv::convolve_test();
+  try {
+    // Flat convolution test
+    Conv::_convolve_test();
+
+    // Depth convolution test
+    Conv::convolve_test();
+
+    MaxPool::_max_pool_test();
+
+    Sigmoid::sigmoid_test();
+  } catch (string my_exception) {
+    cout << my_exception << endl;
+    return 0;  // Do not go past the first exception in a test
+  }
 
   // Intialize model
   // Compound literal, (vector[]), helps initialize an array in function call
@@ -433,11 +445,7 @@ int main() {
   // Do a forward pass with the first "image"
   // model.h(X[1]);
 
-  MaxPool::_max_pool_test();
-
-  Sigmoid::sigmoid_test();
-
-  cout << "Test finished!\n";
+  cout << "Tests finished!\n";
 
   // Main
 
