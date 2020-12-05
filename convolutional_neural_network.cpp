@@ -7,13 +7,14 @@
 
 using namespace std;
 
-// Good diagram: https://engmrk.com/wp-content/uploads/2018/09/Image-Architecture-of-Convolutional-Neural-Network.png
+// Good diagram:
+// https://engmrk.com/wp-content/uploads/2018/09/Image-Architecture-of-Convolutional-Neural-Network.png
 
 class Layer {
  public:
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
 
-  // Helper function
+  // Helper functions
   static void rand_init(vector<vector<double>> matrix, int height, int width) {
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
@@ -22,6 +23,15 @@ class Layer {
         n = n * 200 - 100;
         matrix[i][j] = n;  // (possibly) change to use float to save memory
       }
+    }
+  }
+
+  static void rand_init(vector<vector<double>> matrix, int length) {
+    for (int i = 0; i < length; i++) {
+      // use numbers between -100 and 100
+      double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
+      n = n * 200 - 100;
+      matrix[i] = n;
     }
   }
 
@@ -72,7 +82,8 @@ class Conv : public Layer {
     // Input and output is height x width x num_channels
     // First filter adds to the output of the first channel only, etc.
 
-    // feature map (or activation map) is the output of one filter (or kernel or detector)
+    // feature map (or activation map) is the output of one filter (or kernel or
+    // detector)
     vector<vector<vector<double>>> output_block;
     int num_filters = filters.size();
     for (int i = 0; i < num_filters; i++) {  // Should be embarrassingly parallel
@@ -86,13 +97,13 @@ class Conv : public Layer {
   vector<vector<double>> static convolve(vector<vector<vector<double>>> a, vector<vector<double>> filter, int stride) {
     // a is height x width x num_channels
     // Let's say a is 10x10x3 and filter is 3x3
-    // The first convolutional step will use a's top left corner block of size 3x3x3
-    // For each (i, j, [1, 2, 3]) section of a, we use the same (i, j)th weight of filter to flatten it
-    // In other words, we do a[i][j][1]*w + a[i][j][2]*w + a[i][j][3]*w.
-    // This produces a 3x3x1 which we then element-wise multiply with filter which is also 3x3x1 to
-    // produce 3x3x1 multiplications. These are then all added together to produce one output per
-    // convolutional step.
-    // Reference:
+    // The first convolutional step will use a's top left corner block of size
+    // 3x3x3 For each (i, j, [1, 2, 3]) section of a, we use the same (i, j)th
+    // weight of filter to flatten it In other words, we do a[i][j][1]*w +
+    // a[i][j][2]*w + a[i][j][3]*w. This produces a 3x3x1 which we then
+    // element-wise multiply with filter which is also 3x3x1 to produce 3x3x1
+    // multiplications. These are then all added together to produce one output
+    // per convolutional step. Reference:
     //
     // https://stats.stackexchange.com/questions/335321/in-a-convolutional-neural-network-cnn-when-convolving-the-image-is-the-opera
 
@@ -248,7 +259,8 @@ class MaxPool : public Pool {
   int width;
   int stride;
 
-  // No num_input_channels variable is necessary because no weights are allocated for Pooling
+  // No num_input_channels variable is necessary because no weights are
+  // allocated for Pooling
   MaxPool(int size) {
     height = size;
     width = size;
@@ -421,7 +433,8 @@ class Flatten : public Layer {
   //     for (int i = 0; i < a.size(); i ++) {
   //       for (int j = 0; j < a[0].size(); j++) {
   //         for (int k = 0; k < a[0][0].size(); k++) {
-  //           flattened.push_back(vector<double>{a[i][j][k]}); // Add a one element vector to the column
+  //           flattened.push_back(vector<double>{a[i][j][k]}); // Add a one
+  //           element vector to the column
   //         }
   //       }
   //     }
@@ -435,20 +448,36 @@ class Dense : public Layer {
   int num_out;
 
   vector<vector<double>> weights;
-  // TODO: add a bias
+  vector<double> biases;
 
   Dense(int num_in, int num_out) {
     num_in = num_in;
     num_out = num_out;
 
     rand_init(weights, num_in, num_out);
+    rand_init(biases, num_out);
   }
 
   // Possible problems:
-  // Dense's and Flatten's have a different function signature (every other layer takes in a block and outputs a block)
-  // How to reuse an activation function from Act layer in Dense?
-  void h() {
-    // TODO
+  // Dense's and Flatten's have a different function signature (every other
+  // layer takes in a block and outputs a block) How to reuse an activation
+  // function from Act layer in Dense?
+  vector<double> h(vector<double> a) {
+    vector<double> zs;
+
+    if (z.size() != num_in) {
+      throw(string) "Mismatch between Dense parameters and incoming vector!";
+    }
+
+    for (int i = 0; i < num_out; i++) {
+      double z = biases[i];
+      for (int j = 0; j < num_in; j++) {
+        z = z + a[j] * weights[j][i];
+      }
+      zs.push_back(z);
+    }
+
+    return zs;
   }
 };
 
@@ -457,7 +486,8 @@ class ConvNet {
   vector<Layer> layers;
   ConvNet(vector<Layer> layers) { layers = layers; }
 
-  // int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
+  // int h(vector<vector<vector<double>>> x) {  // Returns an int, a
+  // classification
   //   vector<vector<vector<double>>> a = x;
   //   for (Layer layer : layers) {
   //     vector<vector<vector<double>>> a = layer.h(a);
@@ -526,7 +556,8 @@ int main() {
 
   // Intialize model
   // Compound literal, (vector[]), helps initialize an array in function call
-  // ConvNet model = ConvNet(vector<Layer>{Conv(1, 4, (vector<int>){3, 3, 5, 5}, (vector<int>){1, 1, 2, 2})});
+  // ConvNet model = ConvNet(vector<Layer>{Conv(1, 4, (vector<int>){3, 3, 5, 5},
+  // (vector<int>){1, 1, 2, 2})});
 
   // Do a forward pass with the first "image"
   // model.h(X[1]);
