@@ -15,8 +15,9 @@ class Layer {
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
 
   // Helper functions
-  static void rand_init(vector<vector<double>> matrix, int height, int width) {
+  static void rand_init(vector<vector<double>> &matrix, int height, int width) {
     for (int i = 0; i < height; i++) {
+      vector<double> row;
       for (int j = 0; j < width; j++) {
         // use numbers between -100 and 100
         double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -26,7 +27,7 @@ class Layer {
     }
   }
 
-  static void rand_init(vector<vector<double>> matrix, int length) {
+  static void rand_init(vector<double> matrix, int length) {
     for (int i = 0; i < length; i++) {
       // use numbers between -100 and 100
       double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -36,14 +37,14 @@ class Layer {
   }
 
   vector<vector<double>> static add_matrices(vector<vector<double>> a, vector<vector<double>> b) {
-    vector<vector<double>> c;
+    
+    vector<vector<double>> c(a.size(), vector<double>(a[0].size(), 0));
 
     for (int i = 0; i < a.size(); i++) {
       vector<double> c_column;
       for (int j = 0; j < a[0].size(); j++) {
-        c_column.push_back(a[i][j] + b[i][j]);
+        c[i][j] = (a[i][j] + b[i][j]);
       }
-      c.push_back(c_column);
     }
 
     return c;
@@ -444,18 +445,24 @@ class Flatten : public Layer {
 
 class Dense : public Layer {
  public:
-  int num_int;
+  int num_in;
   int num_out;
 
   vector<vector<double>> weights;
   vector<double> biases;
 
   Dense(int num_in, int num_out) {
-    num_in = num_in;
-    num_out = num_out;
+    // num_in = num_in;
+    // num_out = num_out;
 
+    // Initialize weights with all values zero, then set all weights to a random value
+    weights = vector<vector<double>>(num_in, vector<double>(num_out, 0));
     rand_init(weights, num_in, num_out);
+
+    // Initialize biases with all values zero, then set all biases to a random value
+    biases = vector<double>(num_out, 0);
     rand_init(biases, num_out);
+    cout << "rand_init #2 \n";
   }
 
   // Possible problems:
@@ -465,7 +472,8 @@ class Dense : public Layer {
   vector<double> h(vector<double> a) {
     vector<double> zs;
 
-    if (z.size() != num_in) {
+    if (a.size() != num_in) {
+      cout << a.size() << " " << num_in << endl;
       throw(string) "Mismatch between Dense parameters and incoming vector!";
     }
 
@@ -478,6 +486,19 @@ class Dense : public Layer {
     }
 
     return zs;
+  }
+
+  void static h_test() {
+    vector<double> a{1, 2, 3, 4, 5};
+
+    Dense d = Dense(d.num_in = 5, d.num_out = 3);
+    d.weights = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, 0}, {0, 0, 0}};
+    d.biases = {0, 0, 0};
+
+    vector<double> output = d.h(a);
+    for (auto i : output) {
+      cout << i << endl;
+    }
   }
 };
 
@@ -549,6 +570,9 @@ int main() {
     Sigmoid::sigmoid_test();
 
     Relu::relu_test();
+
+    Dense::h_test();
+
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
@@ -562,7 +586,7 @@ int main() {
   // Do a forward pass with the first "image"
   // model.h(X[1]);
 
-  cout << "Tests finished!\n";
+  cout << "Tests finished!!!!\n";
 
   // Main
 
