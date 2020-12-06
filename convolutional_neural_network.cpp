@@ -190,7 +190,7 @@ class Conv : public Layer {
                                 {0.0, 0.0, 1.0, 1.0, 0.0},
                                 {0.0, 1.0, 1.0, 0.0, 0.0}};
     vector<vector<double>> filter = {{1.0, 0.0, 1.0}, {0.0, 1.0, 0.0}, {1.0, 0.0, 1.0}};
-    cout << "I am starting the test you care about \n";
+    
     vector<vector<double>> actual_output = _convolve(a, filter, 2);
     vector<vector<double>> expected_output = {{4.0, 4.0}, {2.0, 4.0}};
 
@@ -228,8 +228,6 @@ class Conv : public Layer {
       cout << endl;
     }
   }
-
-  //There is an error with cubes. Figure out how to fix it. 
 
   void static convolve_test() {
     vector<vector<vector<double>>> a = {{{1.0, 1.0, 1.0, 0.0, 0.0},
