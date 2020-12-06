@@ -119,36 +119,68 @@ class Conv : public Layer {
       feature_map = add_matrices(feature_map, feature_map_for_depth);
     }
 
+    for(int depth = 0; depth < depth_of_a; depth++){
+
+    }
+
+    //vector<vector<double>> feature_map = _convolve(a[0], filter, stride);
+
+
+
+
     return feature_map;
   }
 
-  vector<vector<double>> static _convolve(vector<vector<double>> a, vector<vector<double>> filter, int stride) {
-    // Row major seems faster
-    // https://stackoverflow.com/questions/33722520/why-is-iterating-2d-array-row-major-faster-than-column-major
-    int i = 0;
-    int j = 0;
+  // vector<vector<double>> static _convolve(vector<vector<double>> a, vector<vector<double>> filter, int stride) {
+  //   // Row major seems faster
+  //   // https://stackoverflow.com/questions/33722520/why-is-iterating-2d-array-row-major-faster-than-column-major
+  //   int i = 0;
+  //   int j = 0;
 
-    vector<vector<double>> convolved;
-    while (i <= a.size() - filter.size()) {
-      vector<double> convolved_row;
+  //   vector<vector<double>> convolved;
+  //   while (i <= a.size() - filter.size()) {
+  //     vector<double> convolved_row;
 
-      while (j <= a[0].size() - filter[0].size()) {
-        double acc_sum{0.0};
-        for (int x = 0; x < filter.size(); ++x) {
-          for (int y = 0; y < filter[0].size(); ++y) {
-            acc_sum = acc_sum + a[i + x][j + y] * filter[x][y];
+  //     while (j <= a[0].size() - filter[0].size()) {
+  //       double acc_sum{0.0};
+  //       for (int x = 0; x < filter.size(); ++x) {
+  //         for (int y = 0; y < filter[0].size(); ++y) {
+  //           acc_sum = acc_sum + a[i + x][j + y] * filter[x][y];
+  //         }
+  //       }
+  //       convolved_row.push_back(acc_sum);
+
+  //       j = j + stride;
+  //     }
+  //     convolved.push_back(convolved_row);
+  //     j = 0;
+
+  //     i = i + stride;
+  //   }
+  //   return convolved;
+  // }
+
+  //Need to take into account stride.
+  vector<vector<double>> static _convolve(vector<vector<double>> a, vector<vector<double>> filter, int stride){
+
+    //Height and width of the convolution. 
+    int c_width = (a.size()-filter.size())/stride + 1;
+    int c_height = (a[0].size()-filter.size())/stride + 1; 
+
+    vector<vector<double>> convolved(c_width, (vector<double>(c_height, 0)));
+    for(int i = 0; i < c_width; ++i){
+      for(int j = 0; j < c_height; ++j){
+      
+        for(int x = 0; x < filter.size(); ++x){
+          for(int y = 0; y < filter[0].size(); ++y){
+            convolved[i][j] = convolved[i][j]+a[i*stride+x][j*stride+y]*filter[x][y];
           }
         }
-        convolved_row.push_back(acc_sum);
-
-        j = j + stride;
       }
-      convolved.push_back(convolved_row);
-      j = 0;
-
-      i = i + stride;
     }
+
     return convolved;
+
   }
 
   void static _convolve_test() {
@@ -158,7 +190,7 @@ class Conv : public Layer {
                                 {0.0, 0.0, 1.0, 1.0, 0.0},
                                 {0.0, 1.0, 1.0, 0.0, 0.0}};
     vector<vector<double>> filter = {{1.0, 0.0, 1.0}, {0.0, 1.0, 0.0}, {1.0, 0.0, 1.0}};
-
+    cout << "I am starting the test you care about \n";
     vector<vector<double>> actual_output = _convolve(a, filter, 2);
     vector<vector<double>> expected_output = {{4.0, 4.0}, {2.0, 4.0}};
 
@@ -196,6 +228,8 @@ class Conv : public Layer {
       cout << endl;
     }
   }
+
+  //There is an error with cubes. Figure out how to fix it. 
 
   void static convolve_test() {
     vector<vector<vector<double>>> a = {{{1.0, 1.0, 1.0, 0.0, 0.0},
@@ -520,7 +554,6 @@ class ConvNet {
 int main() {
   // TESTS
   // set up
-  cout << "Starting test...\n";
 
   const int num_images = 100;
   vector<vector<vector<vector<double>>>> X;  // num_images x height x width x num_channels
@@ -556,6 +589,7 @@ int main() {
   // tests
 
   try {
+
     // Flat convolution test
     Conv::_convolve_test();
 
