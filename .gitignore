@@ -1,4 +1,3 @@
-*.gif
 *.html
 
 # Byte-compiled / optimized / DLL files
@@ -91,6 +90,7 @@ ENV/
 # Rope project settings
 .ropeproject
 
+.idea
 .vscode
 convolutional_neural_network
 convolutional_neural_network.exe
