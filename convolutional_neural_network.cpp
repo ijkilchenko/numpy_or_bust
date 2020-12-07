@@ -1,5 +1,5 @@
 #include <math.h>
-
+#include <typeinfo>
 #include <iostream>
 #include <regex>
 #include <string>
@@ -13,6 +13,7 @@ using namespace std;
 class Layer {
  public:
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
+  vector<double> h(vector<double> x);
 
   // Helper functions
   static void rand_init(vector<vector<double>> &matrix, int height, int width) {
@@ -414,7 +415,7 @@ class Relu : public Act {
 class Flatten : public Layer {
   // Flattens to a row vector
  public:
-  vector<double> h(vector<vector<vector<double>>> a) {
+  vector<double> static f(vector<vector<vector<double>>> a) {
     vector<double> flattened;
     for (int i = 0; i < a.size(); i++) {
       for (int j = 0; j < a[0].size(); j++) {
@@ -507,13 +508,31 @@ class ConvNet {
   vector<Layer> layers;
   ConvNet(vector<Layer> layers) { layers = layers; }
 
-  // int h(vector<vector<vector<double>>> x) {  // Returns an int, a
-  // classification
-  //   vector<vector<vector<double>>> a = x;
-  //   for (Layer layer : layers) {
-  //     vector<vector<vector<double>>> a = layer.h(a);
-  //   }
-  //   // Convert the final output into a classification
+  int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
+    vector<vector<vector<double>>> a = x;
+
+    for (Layer layer : layers) {
+      if(typeid(Flatten) == typeid(layer)) {
+        vector<double> a = Flatten::f(a);
+      }
+      else if(typeid(Dense) == typeid(layer)) {
+        vector<double> a = layer.h(a);
+      }
+      else {
+        vector<vector<vector<double>>> a = layer.h(a);
+      }
+    }
+
+    return 0;
+
+    // a = [.4, .6, .3];
+
+    // return argmax(a); // 2 (1-based)
+    // Convert the final output into a classification
+  }
+
+  // double Loss(x, y) {
+  //   // return (h(x) - y)^2
   // }
 };
 
@@ -573,18 +592,21 @@ int main() {
 
     Dense::h_test();
 
+    // Intialize model
+    // Compound literal, (vector[]), helps initialize an array in function call
+    ConvNet model = ConvNet(vector<Layer>{
+      Conv(1, 2, (vector<int>){3, 3},(vector<int>){1, 1}),
+      MaxPool(2),      
+      Flatten(),
+      Dense(338, 10)});
+
+    // Do a forward pass with the first "image"
+    model.h(X[1]);
+
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
   }
-
-  // Intialize model
-  // Compound literal, (vector[]), helps initialize an array in function call
-  // ConvNet model = ConvNet(vector<Layer>{Conv(1, 4, (vector<int>){3, 3, 5, 5},
-  // (vector<int>){1, 1, 2, 2})});
-
-  // Do a forward pass with the first "image"
-  // model.h(X[1]);
 
   cout << "Tests finished!!!!\n";
 
