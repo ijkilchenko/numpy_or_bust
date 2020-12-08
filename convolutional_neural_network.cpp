@@ -1,8 +1,9 @@
 #include <math.h>
-#include <typeinfo>
+
 #include <iostream>
 #include <regex>
 #include <string>
+#include <typeinfo>
 #include <vector>
 
 using namespace std;
@@ -16,9 +17,8 @@ class Layer {
   vector<double> h(vector<double> x);
 
   // Helper functions
-  static void rand_init(vector<vector<double>> &matrix, int height, int width) {
+  static void rand_init(vector<vector<double>>& matrix, int height, int width) {
     for (int i = 0; i < height; i++) {
-      vector<double> row;
       for (int j = 0; j < width; j++) {
         // use numbers between -100 and 100
         double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -38,7 +38,6 @@ class Layer {
   }
 
   vector<vector<double>> static add_matrices(vector<vector<double>> a, vector<vector<double>> b) {
-    
     vector<vector<double>> c(a.size(), vector<double>(a[0].size(), 0));
 
     for (int i = 0; i < a.size(); i++) {
@@ -63,19 +62,19 @@ class Conv : public Layer {
   // TODO: Add a bias per filter.
   Conv(int num_input_channels, int num_filters, vector<int> size_per_filter, vector<int> stride_per_filter) {
     // TODO: Check if there is a better way to save these.
-    num_input_channels = num_input_channels;
-    num_filters = num_filters;
-    size_per_filter = size_per_filter;
-    stride_per_filter = stride_per_filter;
+    this->num_input_channels = num_input_channels;
+    this->num_filters = num_filters;
+    this->size_per_filter = size_per_filter;
+    this->stride_per_filter = stride_per_filter;
 
-    for (int filter_num; filter_num < num_filters; filter_num++) {
+    for (int i = 0; i < num_filters; i++) {
       // Filters are square
-      int height = size_per_filter[filter_num];
-      int width = size_per_filter[filter_num];
+      int height = size_per_filter[i];
+      int width = size_per_filter[i];
 
-      vector<vector<double>> filter;
+      vector<vector<double>> filter(height, vector<double>(width, 0));
       Layer().rand_init(filter, height, width);
-      filters[filter_num] = filter;
+      this->filters.push_back(filter);
     }
   }
 
@@ -87,7 +86,6 @@ class Conv : public Layer {
     // feature map (or activation map) is the output of one filter (or kernel or
     // detector)
     vector<vector<vector<double>>> output_block;
-    int num_filters = filters.size();
     for (int i = 0; i < num_filters; i++) {  // Should be embarrassingly parallel
       vector<vector<double>> feature_map = convolve(a, filters[i], stride_per_filter[i]);
       output_block.push_back(feature_map);
@@ -264,9 +262,9 @@ class MaxPool : public Pool {
   // No num_input_channels variable is necessary because no weights are
   // allocated for Pooling
   MaxPool(int size) {
-    height = size;
-    width = size;
-    stride = size;
+    this->height = size;
+    this->width = size;
+    this->stride = size;
   }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
@@ -413,35 +411,19 @@ class Relu : public Act {
 };
 
 class Flatten : public Layer {
-  // Flattens to a row vector
+  // Flattens to a column vector
  public:
   vector<double> static f(vector<vector<vector<double>>> a) {
     vector<double> flattened;
     for (int i = 0; i < a.size(); i++) {
       for (int j = 0; j < a[0].size(); j++) {
         for (int k = 0; k < a[0][0].size(); k++) {
-          flattened.push_back(a[i][j][k]);  // Add a one element vector to the row
+          flattened.push_back(a[i][j][k]);  // Add a one element row vector to the column
         }
       }
     }
     return flattened;
   }
-
-  // Uncomment if we need a column vector instead
-  // // Flattens to a column vector
-  // public:
-  //   vector<vector<double>> h(vector<vector<vector<double>>> a) {
-  //     vector<vector<double>> flattened;
-  //     for (int i = 0; i < a.size(); i ++) {
-  //       for (int j = 0; j < a[0].size(); j++) {
-  //         for (int k = 0; k < a[0][0].size(); k++) {
-  //           flattened.push_back(vector<double>{a[i][j][k]}); // Add a one
-  //           element vector to the column
-  //         }
-  //       }
-  //     }
-  //     return flattened;
-  //   }
 };
 
 class Dense : public Layer {
@@ -453,8 +435,8 @@ class Dense : public Layer {
   vector<double> biases;
 
   Dense(int num_in, int num_out) {
-    // num_in = num_in;
-    // num_out = num_out;
+    this->num_in = num_in;
+    this->num_out = num_out;
 
     // Initialize weights with all values zero, then set all weights to a random value
     weights = vector<vector<double>>(num_in, vector<double>(num_out, 0));
@@ -463,7 +445,6 @@ class Dense : public Layer {
     // Initialize biases with all values zero, then set all biases to a random value
     biases = vector<double>(num_out, 0);
     rand_init(biases, num_out);
-    cout << "rand_init #2 \n";
   }
 
   // Possible problems:
@@ -474,7 +455,6 @@ class Dense : public Layer {
     vector<double> zs;
 
     if (a.size() != num_in) {
-      cout << a.size() << " " << num_in << endl;
       throw(string) "Mismatch between Dense parameters and incoming vector!";
     }
 
@@ -505,23 +485,30 @@ class Dense : public Layer {
 
 class ConvNet {
  public:
-  vector<Layer> layers;
-  ConvNet(vector<Layer> layers) { layers = layers; }
+  vector<Layer*> layers;
+  ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
     vector<vector<vector<double>>> a = x;
+    vector<double> v;
 
-    for (Layer layer : layers) {
-      if(typeid(Flatten) == typeid(layer)) {
-        vector<double> a = Flatten::f(a);
-      }
-      else if(typeid(Dense) == typeid(layer)) {
-        vector<double> a = layer.h(a);
-      }
-      else {
-        vector<vector<vector<double>>> a = layer.h(a);
+    cout << layers.size() << endl;
+
+    for (Layer* layer : layers) {
+      if (Conv* layer = dynamic_cast<Conv*>(layer)) {
+        a = layer->h(a);
+      } else if (MaxPool* layer = dynamic_cast<MaxPool*>(layer)) {
+        a = layer->h(a);
+      } else if (Act* layer = dynamic_cast<Act*>(layer)) {
+        a = layer->h(a);
+      } else if (Flatten* layer = dynamic_cast<Flatten*>(layer)) {
+        v = layer->f(a);
+      } else if (Dense* layer = dynamic_cast<Dense*>(layer)) {
+        v = layer->h(v);
       }
     }
+
+    cout << v[0] << endl;
 
     return 0;
 
@@ -577,31 +564,36 @@ int main() {
   try {
     // Flat convolution test
     Conv::_convolve_test();
+    cout << "_convole_test done" << endl;
 
     // Depth convolution test
     Conv::convolve_test();
+    cout << "convole_test done" << endl;
 
     // Flat max pool test
     MaxPool::_max_pool_test();
+    cout << "_max_pool_test done" << endl;
 
     // TODO: make a depth maxpool test if necessary
 
     Sigmoid::sigmoid_test();
+    cout << "sigmoid_test done" << endl;
 
     Relu::relu_test();
+    cout << "relu_test done" << endl;
 
     Dense::h_test();
+    cout << "h_test done" << endl;
 
-    // Intialize model
+    // Intialize model and evaluate an example test
     // Compound literal, (vector[]), helps initialize an array in function call
-    ConvNet model = ConvNet(vector<Layer>{
-      Conv(1, 2, (vector<int>){3, 3},(vector<int>){1, 1}),
-      MaxPool(2),      
-      Flatten(),
-      Dense(338, 10)});
-
+    Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
+    MaxPool pool = MaxPool(2);
+    Flatten flatten = Flatten();
+    Dense dense = Dense(338, 10);
+    ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &flatten, &dense});
     // Do a forward pass with the first "image"
-    model.h(X[1]);
+    cout << model.h(X[0]) << endl;
 
   } catch (string my_exception) {
     cout << my_exception << endl;
