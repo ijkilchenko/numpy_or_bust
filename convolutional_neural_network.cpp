@@ -20,6 +20,8 @@ class Layer {
 
   // Helper functions
   static void rand_init(vector<vector<double>>& matrix, int height, int width) {
+    srand(time(NULL));  // Remove to stop seeding rand()
+
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
         // use numbers between -100 and 100
@@ -31,6 +33,7 @@ class Layer {
   }
 
   static void rand_init(vector<double> matrix, int length) {
+    srand(time(NULL));  // Remove to stop seeding rand()
     for (int i = 0; i < length; i++) {
       // use numbers between -100 and 100
       double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -98,15 +101,7 @@ class Conv : public Layer {
   // static because this is a self-contained method
   vector<vector<double>> static convolve(vector<vector<vector<double>>> a, vector<vector<double>> filter, int stride) {
     // a is num_channels x height x width
-    // Let's say a is 10x10x3 and filter is 3x3
-    // The first convolutional step will use a's top left corner block of size
-    // 3x3x3 For each (i, j, [1, 2, 3]) section of a, we use the same (i, j)th
-    // weight of filter to flatten it In other words, we do a[i][j][1]*w +
-    // a[i][j][2]*w + a[i][j][3]*w. This produces a 3x3x1 which we then
-    // element-wise multiply with filter which is also 3x3x1 to produce 3x3x1
-    // multiplications. These are then all added together to produce one output
-    // per convolutional step. Reference:
-    //
+    // Reference:
     // https://stats.stackexchange.com/questions/335321/in-a-convolutional-neural-network-cnn-when-convolving-the-image-is-the-opera
 
     int depth = a.size();
@@ -291,7 +286,6 @@ class MaxPool : public Pool {
 
       while (j <= a[0].size() - width) {
         double max_value = numeric_limits<double>::lowest();
-        ;
         for (int x = 0; x < height && i + x < a.size(); ++x) {
           for (int y = 0; y < width && j + y < a[0].size(); ++y) {
             if (a[i + x][j + y] > max_value) {
@@ -449,10 +443,6 @@ class Dense : public Layer {
     rand_init(biases, num_out);
   }
 
-  // Possible problems:
-  // Dense's and Flatten's have a different function signature (every other
-  // layer takes in a block and outputs a block) How to reuse an activation
-  // function from Act layer in Dense?
   vector<double> h(vector<double> a) {
     vector<double> zs;
 
@@ -463,7 +453,7 @@ class Dense : public Layer {
     for (int i = 0; i < num_out; i++) {
       double z = biases[i];
       for (int j = 0; j < num_in; j++) {
-        z = z + a[j] * weights[j][i];
+        z = z + weights[i][j] * a[j];
       }
       zs.push_back(z);
     }
@@ -472,15 +462,32 @@ class Dense : public Layer {
   }
 
   void static h_test() {
-    vector<double> a{1, 2, 3, 4, 5};
+    vector<double> a{1, 2, 3};
 
-    Dense d = Dense(d.num_in = 5, d.num_out = 3);
+    Dense d = Dense(3, 5);
     d.weights = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, 0}, {0, 0, 0}};
     d.biases = {0, 0, 0};
 
     vector<double> output = d.h(a);
-    for (auto i : output) {
-      cout << i << endl;
+    vector<double> expected_output = {1, 2, 3, 0, 0, 0};
+    for (int i = 0; i < output.size(); i++) {
+      if (output[i] != expected_output[i]) {
+        throw(string) "Test failed! " + (string) __FUNCTION__;
+      }
+    }
+
+    vector<double> a2{1, 2, 3};
+
+    Dense d2 = Dense(3, 5);
+    d2.weights = {{1, 1, 0}, {0, 1, 3}, {0, 0, 1}, {1, 0, 0}, {0, 2, 0}};
+    d2.biases = {0, 0, 0};
+
+    vector<double> output2 = d2.h(a2);
+    vector<double> expected_output2 = {3, 11, 3, 1, 4, 0};
+    for (int i = 0; i < output2.size(); i++) {
+      if (output2[i] != expected_output2[i]) {
+        throw(string) "Test failed! " + (string) __FUNCTION__;
+      }
     }
   }
 };
@@ -493,8 +500,6 @@ class ConvNet {
   int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
     vector<vector<vector<double>>> a = x;
     vector<double> v;
-
-    cout << layers.size() << endl;
 
     for (Layer* layer : layers) {
       if (Conv* conv = dynamic_cast<Conv*>(layer)) {
@@ -510,19 +515,38 @@ class ConvNet {
       }
     }
 
-    cout << v[0] << endl;
+    // Take argmax of the output
+    int label = 0;
+    cout << v[0] << ",";
+    for (int i = 1; i < v.size(); i++) {
+      cout << v[i] << ",";
+      if (v[label] < v[i]) {
+        label = i;
+      }
+    }
+    cout << endl;
 
-    return 0;
-
-    // a = [.4, .6, .3];
-
-    // return argmax(a); // 2 (1-based)
-    // Convert the final output into a classification
+    return label;
   }
 
-  // double Loss(x, y) {
-  //   // return (h(x) - y)^2
-  // }
+  void static h_test(vector<vector<vector<vector<double>>>> X) {
+    // Intialize model and evaluate an example test
+    // Compound literal, (vector[]), helps initialize an array in function call
+    Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
+    MaxPool pool = MaxPool(2);
+    Relu relu = Relu();
+    Flatten flatten = Flatten();
+    Dense dense = Dense(338, 10);
+    Sigmoid sigmoid = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
+    // Do a forward pass with the first "image"
+    int label = model.h(X[0]);
+    cout << label << endl;
+
+    if (!(label >= 0 && 10 > label)) {
+      throw(string) "Test failed! " + (string) __FUNCTION__;
+    }
+  }
 };
 
 int main() {
@@ -587,19 +611,10 @@ int main() {
     cout << "relu_test done" << endl;
 
     Dense::h_test();
-    cout << "h_test done" << endl;
+    cout << "Dense h_test done" << endl;
 
-    // Intialize model and evaluate an example test
-    // Compound literal, (vector[]), helps initialize an array in function call
-    Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
-    MaxPool pool = MaxPool(2);
-    Relu relu = Relu();
-    Flatten flatten = Flatten();
-    Dense dense = Dense(338, 10);
-    Sigmoid sigmoid = Sigmoid();
-    ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
-    // Do a forward pass with the first "image"
-    cout << model.h(X[0]) << endl;
+    ConvNet::h_test(X);
+    cout << "ConvNet h_test done" << endl;
 
   } catch (string my_exception) {
     cout << my_exception << endl;
