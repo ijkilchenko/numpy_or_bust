@@ -13,6 +13,8 @@ using namespace std;
 
 class Layer {
  public:
+  virtual ~Layer() = default;
+
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
   vector<double> h(vector<double> x);
 
@@ -80,7 +82,7 @@ class Conv : public Layer {
 
   // TODO: Write a test for this function if needed.
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
-    // Input and output is height x width x num_channels
+    // Input and output is num_channels x height x width
     // First filter adds to the output of the first channel only, etc.
 
     // feature map (or activation map) is the output of one filter (or kernel or
@@ -95,7 +97,7 @@ class Conv : public Layer {
 
   // static because this is a self-contained method
   vector<vector<double>> static convolve(vector<vector<vector<double>>> a, vector<vector<double>> filter, int stride) {
-    // a is height x width x num_channels
+    // a is num_channels x height x width
     // Let's say a is 10x10x3 and filter is 3x3
     // The first convolutional step will use a's top left corner block of size
     // 3x3x3 For each (i, j, [1, 2, 3]) section of a, we use the same (i, j)th
@@ -107,14 +109,14 @@ class Conv : public Layer {
     //
     // https://stats.stackexchange.com/questions/335321/in-a-convolutional-neural-network-cnn-when-convolving-the-image-is-the-opera
 
-    int height = a.size();
-    int width = a[0].size();
-    int depth = a[0][0].size();
+    int depth = a.size();
+    int height = a[0].size();
+    int width = a[0][0].size();
 
     int depth_of_a = a.size();
     vector<vector<double>> feature_map = _convolve(a[0], filter, stride);
-    for (int depth = 1; depth < depth_of_a; depth++) {
-      vector<vector<double>> feature_map_for_depth = _convolve(a[depth], filter, stride);
+    for (int i = 1; i < depth; i++) {
+      vector<vector<double>> feature_map_for_depth = _convolve(a[i], filter, stride);
       feature_map = add_matrices(feature_map, feature_map_for_depth);
     }
 
@@ -495,16 +497,16 @@ class ConvNet {
     cout << layers.size() << endl;
 
     for (Layer* layer : layers) {
-      if (Conv* layer = dynamic_cast<Conv*>(layer)) {
-        a = layer->h(a);
-      } else if (MaxPool* layer = dynamic_cast<MaxPool*>(layer)) {
-        a = layer->h(a);
-      } else if (Act* layer = dynamic_cast<Act*>(layer)) {
-        a = layer->h(a);
-      } else if (Flatten* layer = dynamic_cast<Flatten*>(layer)) {
-        v = layer->f(a);
-      } else if (Dense* layer = dynamic_cast<Dense*>(layer)) {
-        v = layer->h(v);
+      if (Conv* conv = dynamic_cast<Conv*>(layer)) {
+        a = conv->h(a);
+      } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
+        a = pool->h(a);
+      } else if (Act* act = dynamic_cast<Act*>(layer)) {
+        a = act->h(a);
+      } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
+        v = flatten->f(a);
+      } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
+        v = dense->h(v);
       }
     }
 
@@ -529,21 +531,23 @@ int main() {
   cout << "Starting test...\n";
 
   const int num_images = 100;
-  vector<vector<vector<vector<double>>>> X;  // num_images x height x width x num_channels
+  vector<vector<vector<vector<double>>>> X;  // num_images x num_channels x height x width
   int Y[num_images];                         // labels for each example
 
   // Randomly initialize X and Y
   for (int i = 0; i < num_images; i++) {
     vector<vector<vector<double>>> image;
+    vector<vector<double>> channel;  // Only one channel per image here.
     for (int j = 0; j < 28; j++) {
-      vector<vector<double>> row;  // Row has depth (of 1 in this example)
+      vector<double> row;
       for (int k = 0; k < 28; k++) {
         double f = (double)rand() / RAND_MAX;
-        vector<double> num = {255 * f};  // use numbers from 0 to 255
+        double num = {255 * f};  // use numbers from 0 to 255
         row.push_back(num);
       }
-      image.push_back(row);
+      channel.push_back(row);
     }
+    image.push_back(channel);
     X.push_back(image);
     Y[i] = rand() % 10;  // TODO: Maybe decrease number of classes for the test?
   }
@@ -552,7 +556,7 @@ int main() {
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 28; j++) {
       for (int k = 0; k < 28; k++) {
-        cout << X[i][j][k][0] << ",";
+        cout << X[i][0][j][k] << ",";
       }
       cout << endl;
     }
@@ -589,9 +593,11 @@ int main() {
     // Compound literal, (vector[]), helps initialize an array in function call
     Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
     MaxPool pool = MaxPool(2);
+    Relu relu = Relu();
     Flatten flatten = Flatten();
     Dense dense = Dense(338, 10);
-    ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &flatten, &dense});
+    Sigmoid sigmoid = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
     cout << model.h(X[0]) << endl;
 
