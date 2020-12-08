@@ -519,6 +519,7 @@ class ConvNet {
         }
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
         v = flatten->f(a);
+        is_last_output_vector = true;
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
         v = dense->h(v);
         is_last_output_vector = true;
