@@ -348,6 +348,16 @@ class Act : public Layer {
     return output_block;
   }
 
+  vector<double> h(vector<double> z) {
+    // Applied the sigmoid element wise.
+    vector<double> output_vector;
+    for (int i = 0; i < z.size(); i++) {
+      double activation = activation_func(z[i]);
+      output_vector.push_back(activation);
+    }
+    return output_vector;
+  }
+
   virtual double activation_func(double z) = 0;
 };
 
@@ -496,16 +506,22 @@ class ConvNet {
     vector<double> v;
 
     for (Layer* layer : layers) {
+      bool is_last_output_vector = false;
       if (Conv* conv = dynamic_cast<Conv*>(layer)) {
         a = conv->h(a);
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
         a = pool->h(a);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        a = act->h(a);
+        if (is_last_output_vector) {
+          v = act->h(v);
+        } else {
+          a = act->h(a);
+        }
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
         v = flatten->f(a);
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
         v = dense->h(v);
+        is_last_output_vector = true;
       }
     }
 
