@@ -3,6 +3,7 @@
 #include <iostream>
 #include <regex>
 #include <string>
+#include <tuple>
 #include <typeinfo>
 #include <vector>
 
@@ -334,18 +335,36 @@ class Act : public Layer {
     // Applied the sigmoid element wise.
     vector<vector<vector<double>>> output_block;
     for (int i = 0; i < z.size(); i++) {
-      vector<vector<double>> row_output;
+      vector<vector<double>> depth_output;
       for (int j = 0; j < z[0].size(); j++) {
-        vector<double> depth_output;
+        vector<double> row_output;
         for (int k = 0; k < z[0][0].size(); k++) {
           double activation = activation_func(z[i][j][k]);
-          depth_output.push_back(activation);
+          row_output.push_back(activation);
         }
-        row_output.push_back(depth_output);
+        depth_output.push_back(row_output);
       }
-      output_block.push_back(row_output);
+      output_block.push_back(depth_output);
     }
     return output_block;
+  }
+
+  vector<vector<vector<double>>> da_dz(vector<vector<vector<double>>> z) {
+    // Applied the sigmoid element wise.
+    vector<vector<vector<double>>> output_block_partials;
+    for (int i = 0; i < z.size(); i++) {
+      vector<vector<double>> depth_output;
+      for (int j = 0; j < z[0].size(); j++) {
+        vector<double> row_output;
+        for (int k = 0; k < z[0][0].size(); k++) {
+          double activation = activation_func_derivative(z[i][j][k]);
+          row_output.push_back(activation);
+        }
+        depth_output.push_back(row_output);
+      }
+      output_block_partials.push_back(depth_output);
+    }
+    return output_block_partials;
   }
 
   vector<double> h(vector<double> z) {
@@ -358,12 +377,27 @@ class Act : public Layer {
     return output_vector;
   }
 
+  vector<double> da_dz(vector<double> z) {
+    // Applied the sigmoid element wise.
+    vector<double> output_vector_partials;
+    for (int i = 0; i < z.size(); i++) {
+      double activation = activation_func_derivative(z[i]);
+      output_vector_partials.push_back(activation);
+    }
+    return output_vector_partials;
+  }
+
   virtual double activation_func(double z) = 0;
+  virtual double activation_func_derivative(double z) = 0;
 };
 
 class Sigmoid : public Act {
  public:
   double activation_func(double z) { return 1 / (1 + exp(-z)); }
+
+  double activation_func_derivative(double z) { 
+    return activation_func(z) * (1 - activation_func(z));
+  };
 
   void static sigmoid_test() {
     vector<vector<vector<double>>> z = {{{1, 1}, {2, 2}, {3, 3}}, {{1, 0}, {0, 1}, {1, -1}}};
@@ -389,6 +423,14 @@ class Sigmoid : public Act {
 class Relu : public Act {
  public:
   double activation_func(double z) { return max(0.0, z); }
+
+  double activation_func_derivative(double z) {
+    if (z > 0) {
+      return 1;
+    } else {
+      return 0;
+    }
+  };
 
   void static relu_test() {
     vector<vector<vector<double>>> z = {{{1, 1}, {2, -2}, {3, -3}}, {{1, 0}, {0, 1}, {1, -1}}};
@@ -501,7 +543,7 @@ class ConvNet {
   vector<Layer*> layers;
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
-  int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
+  vector<double> h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
     vector<vector<vector<double>>> a = x;
     vector<double> v;
 
@@ -526,6 +568,12 @@ class ConvNet {
       }
     }
 
+    return v;
+  }
+
+  int predict(vector<vector<vector<double>>> x) {
+    vector<double> v = h(x);
+
     // Take argmax of the output
     int label = 0;
     cout << v[0] << ",";
@@ -540,6 +588,57 @@ class ConvNet {
     return label;
   }
 
+  double Loss(vector<vector<vector<double>>> x, int y) {
+    if (y == 10) {
+      throw(string) "Mismatch between label definition in Loss and incoming label!";
+    }
+    vector<double> y_vector(10, 0);
+    y_vector[y] = 1;
+
+    vector<double> v = h(x);
+    double acc{0};
+    for (int i = 0; i < v.size(); i++) {
+      acc += (v[i] - y_vector[i]) * (v[i] - y_vector[i]);
+    }
+    return acc;
+  }
+
+  tuple<vector<vector<double>>, vector<double>> _calc_dLoss_dWs() {
+    // Dense + Act:
+    //dLoss/dW_(output_sigmal, incoming_signal)
+    //dLoss/dW_(i,j) = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dw_j
+
+    
+
+    //dLoss/dB_i = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dB_i
+
+    vector<vector<vector<vector<double>>>> a;
+    vector<vector<double>> v;
+
+    // Make this to go backwards
+    for (int i = layers.size()-1; i >= 0; i--){
+      bool is_last_output_box = false;
+      Layer* layer = layers[i];
+      if (Conv* conv = dynamic_cast<Conv*>(layer)) {
+        a = conv->h(a);
+      } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
+        a = pool->h(a);
+      } else if (Act* act = dynamic_cast<Act*>(layer)) {
+        if (is_last_output_box) {
+          v = act->h(v);
+        } else {
+          a = act->h(a);
+        }
+      } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
+        v = flatten->f(a);
+        is_last_output_box = true;
+      } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
+        v = dense->h(v);
+        is_last_output_box = true;
+      }
+    }
+  }
+
   void static h_test(vector<vector<vector<vector<double>>>> X) {
     // Intialize model and evaluate an example test
     // Compound literal, (vector[]), helps initialize an array in function call
@@ -551,12 +650,14 @@ class ConvNet {
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
-    int label = model.h(X[0]);
+    int label = model.predict(X[0]);
     cout << label << endl;
 
     if (!(label >= 0 && 10 > label)) {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
+
+    model._calc_dLoss_dWs();
   }
 };
 
