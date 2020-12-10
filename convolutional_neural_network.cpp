@@ -459,8 +459,8 @@ class Dense : public Layer {
     this->num_out = num_out;
 
     // Initialize weights with all values zero, then set all weights to a random value
-    this->weights = vector<vector<double>>(num_in, vector<double>(num_out, 0));
-    rand_init(weights, num_in, num_out);
+    this->weights = vector<vector<double>>(num_out, vector<double>(num_in, 0));
+    rand_init(weights, num_out, num_in);
 
     // Initialize biases with all values zero, then set all biases to a random value
     this->biases = vector<double>(num_out, 0);
@@ -491,7 +491,7 @@ class Dense : public Layer {
 
     Dense d = Dense(3, 5);
     d.weights = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, 0}, {0, 0, 0}};
-    d.biases = {0, 0, 0};
+    d.biases = {0, 0, 0, 0, 0};
 
     vector<vector<vector<double>>> output = d.h(a);
     vector<vector<vector<double>>> expected_output = {{{1}}, {{2}}, {{3}}, {{0}}, {{0}}, {{0}}};
@@ -505,7 +505,7 @@ class Dense : public Layer {
 
     Dense d2 = Dense(3, 5);
     d2.weights = {{1, 1, 0}, {0, 1, 3}, {0, 0, 1}, {1, 0, 0}, {0, 2, 0}};
-    d2.biases = {0, 0, 0};
+    d2.biases = {0, 0, 0, 0, 0};
 
     vector<vector<vector<double>>> output2 = d2.h(a2);
     vector<vector<vector<double>>> expected_output2 = {{{3}}, {{11}}, {{3}}, {{1}}, {{4}}, {{0}}};
@@ -628,12 +628,12 @@ class ConvNet {
 
         */
 
-        vector<vector<double>> dweights(dense->num_in, vector<double>(dense->num_out, 0));
-        for (int i = 0; i < dense->num_in; i++) {
-          for (int j = 0; j < dense->num_out; j++) {
+        vector<vector<double>> dweights(dense->num_out, vector<double>(dense->num_in, 0));
+        for (int i = 0; i < dense->num_out; i++) {
+          for (int j = 0; j < dense->num_in; j++) {
             dweights[i][j] = (as[L][i][0][0] - y_vector[i]);
-            dweights[i][j] = dweights[i][j] * da_L_dz[i][0][0];
-            dweights[i][j] = dweights[i][j] * as[L - 1][j][0][0];
+            dweights[i][j] *= da_L_dz[i][0][0];
+            dweights[i][j] *= as[L - 1][j][0][0];
           }
         }
 
@@ -722,28 +722,28 @@ int main() {
   // tests
 
   try {
-    // // Flat convolution test
-    // Conv::_convolve_test();
-    // cout << "_convole_test done" << endl;
+    // Flat convolution test
+    Conv::_convolve_test();
+    cout << "_convole_test done" << endl;
 
-    // // Depth convolution test
-    // Conv::convolve_test();
-    // cout << "convole_test done" << endl;
+    // Depth convolution test
+    Conv::convolve_test();
+    cout << "convole_test done" << endl;
 
-    // // Flat max pool test
-    // MaxPool::_max_pool_test();
-    // cout << "_max_pool_test done" << endl;
+    // Flat max pool test
+    MaxPool::_max_pool_test();
+    cout << "_max_pool_test done" << endl;
 
-    // // TODO: make a depth maxpool test if necessary
+    // TODO: make a depth maxpool test if necessary
 
-    // Sigmoid::sigmoid_test();
-    // cout << "sigmoid_test done" << endl;
+    Sigmoid::sigmoid_test();
+    cout << "sigmoid_test done" << endl;
 
-    // Relu::relu_test();
-    // cout << "relu_test done" << endl;
+    Relu::relu_test();
+    cout << "relu_test done" << endl;
 
-    // Dense::h_test();
-    // cout << "Dense h_test done" << endl;
+    Dense::h_test();
+    cout << "Dense h_test done" << endl;
 
     ConvNet::h_test(X, Y);
     cout << "ConvNet h_test done" << endl;
