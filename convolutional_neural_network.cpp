@@ -395,9 +395,7 @@ class Sigmoid : public Act {
  public:
   double activation_func(double z) { return 1 / (1 + exp(-z)); }
 
-  double activation_func_derivative(double z) { 
-    return activation_func(z) * (1 - activation_func(z));
-  };
+  double activation_func_derivative(double z) { return activation_func(z) * (1 - activation_func(z)); };
 
   void static sigmoid_test() {
     vector<vector<vector<double>>> z = {{{1, 1}, {2, 2}, {3, 3}}, {{1, 0}, {0, 1}, {1, -1}}};
@@ -541,6 +539,7 @@ class Dense : public Layer {
 class ConvNet {
  public:
   vector<Layer*> layers;
+  //vector<boxes or vectors>
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   vector<double> h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
@@ -603,62 +602,78 @@ class ConvNet {
     return acc;
   }
 
-  tuple<vector<vector<double>>, vector<double>> _calc_dLoss_dWs() {
-    // Dense + Act:
-    //dLoss/dW_(output_sigmal, incoming_signal)
-    //dLoss/dW_(i,j) = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dw_j
+  // tuple<vector<vector<double>>, vector<double>> _calc_dLoss_dWs() {
+  //   vector<vector<vector<vector<double>>>> a;
+  //   vector<vector<double>> v;
 
-    
+  //   // Make this to go backwards
+  //   for (int i = layers.size() - 1; i >= 0; i--) {
+  //     bool is_last_output_box = false;
+  //     Layer* layer = layers[i];
+  //     if (Conv* conv = dynamic_cast<Conv*>(layer)) {
+  //       // a = conv->h(a);
+  //     } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
+  //       // a = pool->h(a);
+  //     } else if (Act* act = dynamic_cast<Act*>(layer)) {
+  //       if (is_last_output_box) {
+  //         // v = act->h(v);
+  //       } else {
+  //         // a = act->h(a);
+  //       }
+  //     } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
+  //       // v = flatten->f(a);
+  //       // is_last_output_box = true;
+  //     } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
+  //       /*
+  //       L(x, y) = \sum_i^I 1/2(a_i^L - y_i)^2
+  //       Dense + Act:
+  //       dLoss/dW_(output_sigmal, incoming_signal)
+  //       dLoss/dW_{i,j} = dLoss/da_i^L \sum_i^I da_i^L/dz_i dz_i/dw_{i,j}
 
-    //dLoss/dB_i = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dB_i
+  //       dLoss/dh_i = (a_i^L - y_i)
 
-    vector<vector<vector<vector<double>>>> a;
-    vector<vector<double>> v;
+  //       da_i^L/dz_i = (above)
 
-    // Make this to go backwards
-    for (int i = layers.size()-1; i >= 0; i--){
-      bool is_last_output_box = false;
-      Layer* layer = layers[i];
-      if (Conv* conv = dynamic_cast<Conv*>(layer)) {
-        a = conv->h(a);
-      } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
-        a = pool->h(a);
-      } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        if (is_last_output_box) {
-          v = act->h(v);
-        } else {
-          a = act->h(a);
-        }
-      } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
-        v = flatten->f(a);
-        is_last_output_box = true;
-      } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
-        v = dense->h(v);
-        is_last_output_box = true;
-      }
-    }
-  }
+  //       dz_i^L/dw_{i,j} = a_j^{L-1}
 
-  void static h_test(vector<vector<vector<vector<double>>>> X) {
-    // Intialize model and evaluate an example test
-    // Compound literal, (vector[]), helps initialize an array in function call
-    Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
-    MaxPool pool = MaxPool(2);
-    Relu relu = Relu();
-    Flatten flatten = Flatten();
-    Dense dense = Dense(338, 10);
-    Sigmoid sigmoid = Sigmoid();
-    ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
-    // Do a forward pass with the first "image"
-    int label = model.predict(X[0]);
-    cout << label << endl;
+  //       dLoss/dB_i = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dB_i
+  //       ...
+  //       */
 
-    if (!(label >= 0 && 10 > label)) {
-      throw(string) "Test failed! " + (string) __FUNCTION__;
-    }
 
-    model._calc_dLoss_dWs();
-  }
+  //       // v = dense->h(v);
+  //       vector<vector<double>> dweights(dense->num_in, vector<double>(dense->num_out, 0));
+  //       for (int i = 0; i < dense->num_in; i ++) {
+  //         for (int j = 0; j < dense ->num_out; j++) {
+  //           dweights[i][j] = 
+  //         }
+
+  //       }
+  //       // is_last_output_box = true;
+  //     }
+  //   }
+  //}
+
+  // void static h_test(vector<vector<vector<vector<double>>>> X) {
+  //   // Intialize model and evaluate an example test
+  //   // Compound literal, (vector[]), helps initialize an array in function call
+  //   Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
+  //   MaxPool pool = MaxPool(2);
+  //   Relu relu = Relu();
+  //   Flatten flatten = Flatten();
+  //   Dense dense = Dense(338, 10);
+  //   Sigmoid sigmoid = Sigmoid();
+  //   ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
+  //   // Do a forward pass with the first "image"
+  //   int label = model.predict(X[0]);
+  //   cout << label << endl;
+
+  //   if (!(label >= 0 && 10 > label)) {
+  //     throw(string) "Test failed! " + (string) __FUNCTION__;
+  //   }
+
+  //   model._calc_dLoss_dWs();
+  // }
 };
 
 int main() {
@@ -724,8 +739,8 @@ int main() {
     Dense::h_test();
     cout << "Dense h_test done" << endl;
 
-    ConvNet::h_test(X);
-    cout << "ConvNet h_test done" << endl;
+    // ConvNet::h_test(X);
+    // cout << "ConvNet h_test done" << endl;
 
   } catch (string my_exception) {
     cout << my_exception << endl;
