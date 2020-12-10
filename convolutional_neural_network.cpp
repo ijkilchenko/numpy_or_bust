@@ -524,7 +524,7 @@ class ConvNet {
 
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
-  vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
     vector<vector<vector<double>>> a = x;
     // as.push_back(a);
 
@@ -659,7 +659,9 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-    model._calc_dLoss_dWs(Y[0]);
+    vector<tuple<vector<vector<double>>, vector<double>>> jacs = model._calc_dLoss_dWs(Y[0]);
+    // (L(W+h) - L(W-h))/(2*h)
+    // TODO: gradient checking
 
     // // Intialize model and evaluate an example test
     // // Compound literal, (vector[]), helps initialize an array in function call
