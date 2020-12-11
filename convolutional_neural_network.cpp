@@ -3,6 +3,7 @@
 #include <iostream>
 #include <regex>
 #include <string>
+#include <tuple>
 #include <typeinfo>
 #include <vector>
 
@@ -16,7 +17,6 @@ class Layer {
   virtual ~Layer() = default;
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
-  vector<double> h(vector<double> x);
 
   // Helper functions
   static void rand_init(vector<vector<double>>& matrix, int height, int width) {
@@ -24,20 +24,20 @@ class Layer {
 
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
-        // use numbers between -100 and 100
+        // use numbers between -10 and 10
         double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
-        n = n * 200 - 100;
+        n = n * 2 - 1;
         matrix[i][j] = n;  // (possibly) change to use float to save memory
       }
     }
   }
 
-  static void rand_init(vector<double> matrix, int length) {
+  static void rand_init(vector<double>& matrix, int length) {
     srand(time(NULL));  // Remove to stop seeding rand()
     for (int i = 0; i < length; i++) {
-      // use numbers between -100 and 100
+      // use numbers between -10 and 10
       double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
-      n = n * 200 - 100;
+      n = n * 2 - 1;
       matrix[i] = n;
     }
   }
@@ -334,36 +334,47 @@ class Act : public Layer {
     // Applied the sigmoid element wise.
     vector<vector<vector<double>>> output_block;
     for (int i = 0; i < z.size(); i++) {
-      vector<vector<double>> row_output;
+      vector<vector<double>> depth_output;
       for (int j = 0; j < z[0].size(); j++) {
-        vector<double> depth_output;
+        vector<double> row_output;
         for (int k = 0; k < z[0][0].size(); k++) {
           double activation = activation_func(z[i][j][k]);
-          depth_output.push_back(activation);
+          row_output.push_back(activation);
         }
-        row_output.push_back(depth_output);
+        depth_output.push_back(row_output);
       }
-      output_block.push_back(row_output);
+      output_block.push_back(depth_output);
     }
     return output_block;
   }
 
-  vector<double> h(vector<double> z) {
+  vector<vector<vector<double>>> da_dz(vector<vector<vector<double>>> z) {
     // Applied the sigmoid element wise.
-    vector<double> output_vector;
+    vector<vector<vector<double>>> output_block_partials;
     for (int i = 0; i < z.size(); i++) {
-      double activation = activation_func(z[i]);
-      output_vector.push_back(activation);
+      vector<vector<double>> depth_output;
+      for (int j = 0; j < z[0].size(); j++) {
+        vector<double> row_output;
+        for (int k = 0; k < z[0][0].size(); k++) {
+          double activation = activation_func_derivative(z[i][j][k]);
+          row_output.push_back(activation);
+        }
+        depth_output.push_back(row_output);
+      }
+      output_block_partials.push_back(depth_output);
     }
-    return output_vector;
+    return output_block_partials;
   }
 
   virtual double activation_func(double z) = 0;
+  virtual double activation_func_derivative(double z) = 0;
 };
 
 class Sigmoid : public Act {
  public:
   double activation_func(double z) { return 1 / (1 + exp(-z)); }
+
+  double activation_func_derivative(double z) { return activation_func(z) * (1 - activation_func(z)); };
 
   void static sigmoid_test() {
     vector<vector<vector<double>>> z = {{{1, 1}, {2, 2}, {3, 3}}, {{1, 0}, {0, 1}, {1, -1}}};
@@ -390,6 +401,14 @@ class Relu : public Act {
  public:
   double activation_func(double z) { return max(0.0, z); }
 
+  double activation_func_derivative(double z) {
+    if (z > 0) {
+      return 1;
+    } else {
+      return 0;
+    }
+  };
+
   void static relu_test() {
     vector<vector<vector<double>>> z = {{{1, 1}, {2, -2}, {3, -3}}, {{1, 0}, {0, 1}, {1, -1}}};
     vector<vector<vector<double>>> val = Relu().h(z);
@@ -413,12 +432,13 @@ class Relu : public Act {
 class Flatten : public Layer {
   // Flattens to a column vector
  public:
-  vector<double> static f(vector<vector<vector<double>>> a) {
-    vector<double> flattened;
+  vector<vector<vector<double>>> static f(vector<vector<vector<double>>> a) {
+    vector<vector<vector<double>>> flattened;
     for (int i = 0; i < a.size(); i++) {
       for (int j = 0; j < a[0].size(); j++) {
         for (int k = 0; k < a[0][0].size(); k++) {
-          flattened.push_back(a[i][j][k]);  // Add a one element row vector to the column
+          vector<vector<double>> num = {{a[i][j][k]}};
+          flattened.push_back(num);  // Add a one element row vector to the column
         }
       }
     }
@@ -439,16 +459,16 @@ class Dense : public Layer {
     this->num_out = num_out;
 
     // Initialize weights with all values zero, then set all weights to a random value
-    weights = vector<vector<double>>(num_in, vector<double>(num_out, 0));
-    rand_init(weights, num_in, num_out);
+    this->weights = vector<vector<double>>(num_out, vector<double>(num_in, 0));
+    rand_init(weights, num_out, num_in);
 
     // Initialize biases with all values zero, then set all biases to a random value
-    biases = vector<double>(num_out, 0);
+    this->biases = vector<double>(num_out, 0);
     rand_init(biases, num_out);
   }
 
-  vector<double> h(vector<double> a) {
-    vector<double> zs;
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> a) {
+    vector<vector<vector<double>>> zs;
 
     if (a.size() != num_in) {
       throw(string) "Mismatch between Dense parameters and incoming vector!";
@@ -457,39 +477,40 @@ class Dense : public Layer {
     for (int i = 0; i < num_out; i++) {
       double z = biases[i];
       for (int j = 0; j < num_in; j++) {
-        z = z + weights[i][j] * a[j];
+        z = z + weights[i][j] * a[j][0][0];
       }
-      zs.push_back(z);
+      vector<vector<double>> num = {{z}};
+      zs.push_back(num);
     }
 
     return zs;
   }
 
   void static h_test() {
-    vector<double> a{1, 2, 3};
+    vector<vector<vector<double>>> a{{{1}}, {{2}}, {{3}}};  // e.g. a[0] = {{1}};
 
     Dense d = Dense(3, 5);
     d.weights = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, 0}, {0, 0, 0}};
-    d.biases = {0, 0, 0};
+    d.biases = {0, 0, 0, 0, 0};
 
-    vector<double> output = d.h(a);
-    vector<double> expected_output = {1, 2, 3, 0, 0, 0};
+    vector<vector<vector<double>>> output = d.h(a);
+    vector<vector<vector<double>>> expected_output = {{{1}}, {{2}}, {{3}}, {{0}}, {{0}}, {{0}}};
     for (int i = 0; i < output.size(); i++) {
-      if (output[i] != expected_output[i]) {
+      if (output[i][0][0] != expected_output[i][0][0]) {
         throw(string) "Test failed! " + (string) __FUNCTION__;
       }
     }
 
-    vector<double> a2{1, 2, 3};
+    vector<vector<vector<double>>> a2{{{1}}, {{2}}, {{3}}};
 
     Dense d2 = Dense(3, 5);
     d2.weights = {{1, 1, 0}, {0, 1, 3}, {0, 0, 1}, {1, 0, 0}, {0, 2, 0}};
-    d2.biases = {0, 0, 0};
+    d2.biases = {0, 0, 0, 0, 0};
 
-    vector<double> output2 = d2.h(a2);
-    vector<double> expected_output2 = {3, 11, 3, 1, 4, 0};
+    vector<vector<vector<double>>> output2 = d2.h(a2);
+    vector<vector<vector<double>>> expected_output2 = {{{3}}, {{11}}, {{3}}, {{1}}, {{4}}, {{0}}};
     for (int i = 0; i < output2.size(); i++) {
-      if (output2[i] != expected_output2[i]) {
+      if (output2[i][0][0] != expected_output2[i][0][0]) {
         throw(string) "Test failed! " + (string) __FUNCTION__;
       }
     }
@@ -499,39 +520,42 @@ class Dense : public Layer {
 class ConvNet {
  public:
   vector<Layer*> layers;
+  vector<vector<vector<vector<double>>>> as;
+
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
-  int h(vector<vector<vector<double>>> x) {  // Returns an int, a classification
+  vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
     vector<vector<vector<double>>> a = x;
-    vector<double> v;
+    // as.push_back(a);
 
     for (Layer* layer : layers) {
-      bool is_last_output_vector = false;
+      vector<vector<vector<double>>> z = a;
       if (Conv* conv = dynamic_cast<Conv*>(layer)) {
-        a = conv->h(a);
+        a = conv->h(z);
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
-        a = pool->h(a);
+        a = pool->h(z);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        if (is_last_output_vector) {
-          v = act->h(v);
-        } else {
-          a = act->h(a);
-        }
+        a = act->h(z);
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
-        v = flatten->f(a);
-        is_last_output_vector = true;
+        a = flatten->f(z);
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
-        v = dense->h(v);
-        is_last_output_vector = true;
+        a = dense->h(z);
       }
+      as.push_back(a);
     }
+
+    return a;
+  }
+
+  int predict(vector<vector<vector<double>>> x) {
+    vector<vector<vector<double>>> a = h(x);
 
     // Take argmax of the output
     int label = 0;
-    cout << v[0] << ",";
-    for (int i = 1; i < v.size(); i++) {
-      cout << v[i] << ",";
-      if (v[label] < v[i]) {
+    cout << a[0][0][0] << ",";
+    for (int i = 1; i < a.size(); i++) {
+      cout << a[i][0][0] << ",";
+      if (a[label][0][0] < a[i][0][0]) {
         label = i;
       }
     }
@@ -540,23 +564,123 @@ class ConvNet {
     return label;
   }
 
-  void static h_test(vector<vector<vector<vector<double>>>> X) {
-    // Intialize model and evaluate an example test
-    // Compound literal, (vector[]), helps initialize an array in function call
-    Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
-    MaxPool pool = MaxPool(2);
-    Relu relu = Relu();
+  double Loss(vector<vector<vector<double>>> x, int y) {
+    if (y == 10) {
+      throw(string) "Mismatch between label definition in Loss and incoming label!";
+    }
+    vector<double> y_vector(10, 0);
+    y_vector[y] = 1;
+
+    vector<vector<vector<double>>> a = h(x);
+    double acc{0};
+    for (int i = 0; i < a.size(); i++) {
+      acc += (a[i][0][0] - y_vector[i]) * (a[i][0][0] - y_vector[i]);
+    }
+    return acc;
+  }
+
+  vector<tuple<vector<vector<double>>, vector<double>>> _calc_dLoss_dWs(int y) {
+    /*
+    Return data type:
+    For every layer, we need a vector
+    Every layer has both weights and biases so you need a tuple of those
+    NOTE: might need to make all weights into boxes
+    */
+
+    vector<vector<vector<vector<double>>>> a;
+
+    vector<vector<vector<double>>> da_L_dz;
+
+    vector<double> y_vector(10, 0);
+    y_vector[y] = 1;
+
+    vector<tuple<vector<vector<double>>, vector<double>>> jacs;
+
+    for (int L = layers.size() - 1; L >= 0; L--) {
+      bool is_last_output_box = false;
+      Layer* layer = layers[L];
+      if (Conv* conv = dynamic_cast<Conv*>(layer)) {
+        // a = conv->h(a);
+      } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
+        // a = pool->h(a);
+      } else if (Act* act = dynamic_cast<Act*>(layer)) {
+        da_L_dz = act->da_dz(as[L - 1]);
+      } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
+        // v = flatten->f(a);
+        // is_last_output_box = true;
+      } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
+        /*
+        L(x, y) = \sum_i^I 1/2(a_i^L - y_i)^2
+        Dense + Act:
+        dLoss/dW_(output_sigmal, incoming_signal)
+        dLoss/dW_{i,j} = dLoss/da_i^L da_i^L/dz_i dz_i/dw_{i,j}
+
+        dLoss/da_i^L = (a_i^L - y_i)
+
+        da_i^L/dz_i = (above)
+
+        dz_i^L/dw_{i,j} = a_j^{L-1}
+
+        //TODO
+        dLoss/dB_i = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dB_i
+        ...
+
+
+        */
+
+        vector<vector<double>> dweights(dense->num_out, vector<double>(dense->num_in, 0));
+        for (int i = 0; i < dense->num_out; i++) {
+          for (int j = 0; j < dense->num_in; j++) {
+            dweights[i][j] = (as[L][i][0][0] - y_vector[i]);
+            dweights[i][j] *= da_L_dz[i][0][0];
+            dweights[i][j] *= as[L - 1][j][0][0];
+          }
+        }
+
+        vector<double> dbiases(dense->num_out, 0);
+
+        tuple<vector<vector<double>>, vector<double>> jac_tuple = make_tuple(dweights, dbiases);
+        jacs.push_back(jac_tuple);
+      }
+    }
+    return jacs;
+  }
+
+  void static h_test(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(338, 10);
+    Dense dense = Dense(784, 10);
     Sigmoid sigmoid = Sigmoid();
-    ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
+    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
-    int label = model.h(X[0]);
+    int label = model.predict(X[0]);
     cout << label << endl;
 
     if (!(label >= 0 && 10 > label)) {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
+
+    vector<tuple<vector<vector<double>>, vector<double>>> jacs = model._calc_dLoss_dWs(Y[0]);
+    // (L(W+h) - L(W-h))/(2*h)
+    // TODO: gradient checking
+
+    // // Intialize model and evaluate an example test
+    // // Compound literal, (vector[]), helps initialize an array in function call
+    // Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
+    // MaxPool pool = MaxPool(2);
+    // Relu relu = Relu();
+    // Flatten flatten = Flatten();
+    // Dense dense = Dense(338, 10);
+    // Sigmoid sigmoid = Sigmoid();
+    // ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
+    // // Do a forward pass with the first "image"
+    // int label = model.predict(X[0]);
+    // cout << label << endl;
+
+    // if (!(label >= 0 && 10 > label)) {
+    //   throw(string) "Test failed! " + (string) __FUNCTION__;
+    // }
+
+    // model._calc_dLoss_dWs();
   }
 };
 
@@ -576,7 +700,7 @@ int main() {
       vector<double> row;
       for (int k = 0; k < 28; k++) {
         double f = (double)rand() / RAND_MAX;
-        double num = {255 * f};  // use numbers from 0 to 255
+        double num = f;  // should be from 0 to 255 but scaled to [0, 1]
         row.push_back(num);
       }
       channel.push_back(row);
@@ -623,7 +747,7 @@ int main() {
     Dense::h_test();
     cout << "Dense h_test done" << endl;
 
-    ConvNet::h_test(X);
+    ConvNet::h_test(X, Y);
     cout << "ConvNet h_test done" << endl;
 
   } catch (string my_exception) {
