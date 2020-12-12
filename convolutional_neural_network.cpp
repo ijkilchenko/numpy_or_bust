@@ -525,6 +525,7 @@ class ConvNet {
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
+    as.clear(); // Start with an empty vector of activations
     vector<vector<vector<double>>> a = x;
     // as.push_back(a);
 
@@ -575,7 +576,7 @@ class ConvNet {
     vector<vector<vector<double>>> a = h(x);
     double acc{0};
     for (int i = 0; i < a.size(); i++) {
-      acc += (a[i][0][0] - y_vector[i]) * (a[i][0][0] - y_vector[i]);
+      acc += (a[i][0][0] - y_vector[i]) * (a[i][0][0] - y_vector[i])/2;
     }
     return acc;
   }
@@ -632,9 +633,9 @@ class ConvNet {
         vector<vector<double>> dweights(dense->num_out, vector<double>(dense->num_in, 0));
         for (int i = 0; i < dense->num_out; i++) {
           for (int j = 0; j < dense->num_in; j++) {
-            dweights[i][j] = (as[L][i][0][0] - y_vector[i]);
+            dweights[i][j] = (as[L+1][i][0][0] - y_vector[i]);
             dweights[i][j] *= da_L_dz[i][0][0];
-            dweights[i][j] *= as[L - 1][j][0][0];
+            dweights[i][j] *= as[L-1][j][0][0];
           }
         }
 
@@ -649,7 +650,7 @@ class ConvNet {
 
   void static h_test(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(4, 10);
+    Dense dense = Dense(4, 2);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -665,7 +666,7 @@ class ConvNet {
     // TODO: gradient checking
 
     tuple<vector<vector<double>>, vector<double>> to_Test = jacs[0];
-    double epsilon {0.00001}; 
+    double epsilon {0.001};
 
 
     //Might be better to loop over descreasing values of epsilon
@@ -678,6 +679,7 @@ class ConvNet {
     double num_Derv3 = num_Derv - num_Derv2; 
     double num_Derv4 = num_Derv3/(2*epsilon);
     cout << get<0>(to_Test)[0][1] << endl;
+    cout << num_Derv4 << endl;
     cout << "Difference in derivatives: " << num_Derv4 - get<0>(to_Test)[0][1] << endl;  
 
     dense.weights[0][1] += epsilon; 
@@ -728,7 +730,7 @@ int main() {
     }
     image.push_back(channel);
     X.push_back(image);
-    Y[i] = rand() % 10;  // TODO: Maybe decrease number of classes for the test?
+    Y[i] = rand() % 2;  // TODO: Maybe decrease number of classes for the test?
   }
 
   // Look at first 2 "images"
@@ -745,28 +747,28 @@ int main() {
   // tests
 
   try {
-    // Flat convolution test
-    Conv::_convolve_test();
-    cout << "_convole_test done" << endl;
+    // // Flat convolution test
+    // Conv::_convolve_test();
+    // cout << "_convole_test done" << endl;
 
-    // Depth convolution test
-    Conv::convolve_test();
-    cout << "convole_test done" << endl;
+    // // Depth convolution test
+    // Conv::convolve_test();
+    // cout << "convole_test done" << endl;
 
-    // Flat max pool test
-    MaxPool::_max_pool_test();
-    cout << "_max_pool_test done" << endl;
+    // // Flat max pool test
+    // MaxPool::_max_pool_test();
+    // cout << "_max_pool_test done" << endl;
 
-    // TODO: make a depth maxpool test if necessary
+    // // TODO: make a depth maxpool test if necessary
 
-    Sigmoid::sigmoid_test();
-    cout << "sigmoid_test done" << endl;
+    // Sigmoid::sigmoid_test();
+    // cout << "sigmoid_test done" << endl;
 
-    Relu::relu_test();
-    cout << "relu_test done" << endl;
+    // Relu::relu_test();
+    // cout << "relu_test done" << endl;
 
-    Dense::h_test();
-    cout << "Dense h_test done" << endl;
+    // Dense::h_test();
+    // cout << "Dense h_test done" << endl;
 
     ConvNet::h_test(X, Y);
     cout << "ConvNet h_test done" << endl;
