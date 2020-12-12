@@ -20,7 +20,7 @@ class Layer {
 
   // Helper functions
   static void rand_init(vector<vector<double>>& matrix, int height, int width) {
-    srand(time(NULL));  // Remove to stop seeding rand()
+    srand(2);  // Remove to stop seeding rand()
 
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
@@ -33,7 +33,7 @@ class Layer {
   }
 
   static void rand_init(vector<double>& matrix, int length) {
-    srand(time(NULL));  // Remove to stop seeding rand()
+    srand(2);  // Remove to stop seeding rand()
     for (int i = 0; i < length; i++) {
       // use numbers between -10 and 10
       double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -564,6 +564,7 @@ class ConvNet {
     return label;
   }
 
+  //Calculate the loss function 
   double Loss(vector<vector<vector<double>>> x, int y) {
     if (y == 10) {
       throw(string) "Mismatch between label definition in Loss and incoming label!";
@@ -648,7 +649,7 @@ class ConvNet {
 
   void static h_test(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(784, 10);
+    Dense dense = Dense(4, 10);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -662,6 +663,26 @@ class ConvNet {
     vector<tuple<vector<vector<double>>, vector<double>>> jacs = model._calc_dLoss_dWs(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
     // TODO: gradient checking
+
+    tuple<vector<vector<double>>, vector<double>> to_Test = jacs[0];
+    double epsilon {0.00001}; 
+
+
+    //Might be better to loop over descreasing values of epsilon
+    dense.weights[0][1] += epsilon; 
+    double num_Derv = model.Loss(X[0], Y[0]);
+
+    dense.weights[0][1] -= 2*epsilon;
+    double num_Derv2 = model.Loss(X[0], Y[0]);
+    
+    double num_Derv3 = num_Derv - num_Derv2; 
+    double num_Derv4 = num_Derv3/(2*epsilon);
+    cout << get<0>(to_Test)[0][1] << endl;
+    cout << "Difference in derivatives: " << num_Derv4 - get<0>(to_Test)[0][1] << endl;  
+
+    dense.weights[0][1] += epsilon; 
+
+
 
     // // Intialize model and evaluate an example test
     // // Compound literal, (vector[]), helps initialize an array in function call
@@ -696,9 +717,9 @@ int main() {
   for (int i = 0; i < num_images; i++) {
     vector<vector<vector<double>>> image;
     vector<vector<double>> channel;  // Only one channel per image here.
-    for (int j = 0; j < 28; j++) {
+    for (int j = 0; j < 2; j++) {
       vector<double> row;
-      for (int k = 0; k < 28; k++) {
+      for (int k = 0; k < 2; k++) {
         double f = (double)rand() / RAND_MAX;
         double num = f;  // should be from 0 to 255 but scaled to [0, 1]
         row.push_back(num);
@@ -712,8 +733,8 @@ int main() {
 
   // Look at first 2 "images"
   for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 28; j++) {
-      for (int k = 0; k < 28; k++) {
+    for (int j = 0; j < 2; j++) {
+      for (int k = 0; k < 2; k++) {
         cout << X[i][0][j][k] << ",";
       }
       cout << endl;
