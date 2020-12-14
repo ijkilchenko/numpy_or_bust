@@ -20,7 +20,7 @@ class Layer {
 
   // Helper functions
   static void rand_init(vector<vector<double>>& matrix, int height, int width) {
-    srand(2);  // Remove to stop seeding rand()
+    srand(time(NULL));  // Remove to stop seeding rand()
 
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
@@ -33,7 +33,7 @@ class Layer {
   }
 
   static void rand_init(vector<double>& matrix, int length) {
-    srand(2);  // Remove to stop seeding rand()
+    srand(time(NULL));  // Remove to stop seeding rand()
     for (int i = 0; i < length; i++) {
       // use numbers between -10 and 10
       double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -520,11 +520,14 @@ class Dense : public Layer {
 class ConvNet {
  public:
   vector<Layer*> layers;
-  vector<vector<vector<vector<double>>>> as;
+  vector<vector<vector<vector<double>>>> a;
 
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
+
+    a.clear();  // Start with an empty vector of activations
+
     vector<vector<vector<double>>> feature_map = x;
     // as.push_back(a);
 
@@ -541,7 +544,9 @@ class ConvNet {
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
         feature_map = dense->h(z);
       }
-      as.push_back(feature_map);
+
+      a.push_back(feature_map);
+
     }
 
     return feature_map;
@@ -564,7 +569,7 @@ class ConvNet {
     return label;
   }
 
-  //Calculate the loss function 
+  // Calculate the loss function
   double Loss(vector<vector<vector<double>>> x, int y) {
     if (y == 10) {
       throw(string) "Mismatch between label definition in Loss and incoming label!";
@@ -574,13 +579,15 @@ class ConvNet {
 
     vector<vector<vector<double>>> feature_map = h(x);
     double acc{0};
+
     for (int i = 0; i < feature_map.size(); i++) {
       acc += (feature_map[i][0][0] - y_vector[i]) * (feature_map[i][0][0] - y_vector[i]);
+
     }
     return acc;
   }
 
-  vector<tuple<vector<vector<double>>, vector<double>>> _calc_dLoss_dWs(int y) {
+  vector<tuple<vector<vector<double>>, vector<double>>> _calc_dLoss_dParam(int y) {
     /*
     Return data type:
     For every layer, we need a vector
@@ -588,7 +595,7 @@ class ConvNet {
     NOTE: might need to make all weights into boxes
     */
 
-    vector<vector<vector<vector<double>>>> a;
+    // vector<vector<vector<vector<double>>>> a;
 
     vector<vector<vector<double>>> da_L_dz;
 
@@ -605,7 +612,7 @@ class ConvNet {
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
         // a = pool->h(a);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        da_L_dz = act->da_dz(as[L - 1]);
+        da_L_dz = act->da_dz(a[L - 1]);
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
         // v = flatten->f(a);
         // is_last_output_box = true;
@@ -632,16 +639,20 @@ class ConvNet {
         vector<vector<double>> dW(dense->num_out, vector<double>(dense->num_in, 0));
         for (int i = 0; i < dense->num_out; i++) {
           for (int j = 0; j < dense->num_in; j++) {
+
             dW[i][j] = (a[L][i][0][0] - y_vector[i]);
             dW[i][j] *= da_L_dz[i][0][0];
             dW[i][j] *= a[L - 1][j][0][0];
+
           }
         }
 
         vector<double> dbiases(dense->num_out, 0);
 
+
         tuple<vector<vector<double>>, vector<double>> dW_tuple = make_tuple(dW, dbiases);
         dParam_per_layer.push_back(dW_tuple);
+
       }
     }
     return dParam_per_layer;
@@ -649,7 +660,7 @@ class ConvNet {
 
   void static h_test(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(4, 10);
+    Dense dense = Dense(4, 2);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -660,29 +671,35 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dWs(Y[0]);
+
+    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
-    // TODO: gradient checking
-
-    tuple<vector<vector<double>>, vector<double>> to_Test = dParam_per_layer[0];
-    double epsilon {0.00001}; 
 
 
-    //Might be better to loop over descreasing values of epsilon
-    dense.weights[0][1] += epsilon; 
-    double num_Derv = model.Loss(X[0], Y[0]);
+    for (int i = 0; i < dense.num_out; i++) {
+      for (int j = 0; j < dense.num_out; j++) {
+        if (!(i == 0 && j == 0) && (rand() % 100) < 30) {
+          continue;
+        } else {
+          tuple<vector<vector<double>>, vector<double>> dParam = dParam_per_layer[0];
+          double epsilon{0.001};
 
-    dense.weights[0][1] -= 2*epsilon;
-    double num_Derv2 = model.Loss(X[0], Y[0]);
-    
-    double num_Derv3 = num_Derv - num_Derv2; 
-    double num_Derv4 = num_Derv3/(2*epsilon);
-    cout << get<0>(to_Test)[0][1] << endl;
-    cout << "Difference in derivatives: " << num_Derv4 - get<0>(to_Test)[0][1] << endl;  
+          // Might be better to loop over descreasing values of epsilon
+          dense.weights[i][j] += epsilon;
+          double loss1 = model.Loss(X[0], Y[0]);
 
-    dense.weights[0][1] += epsilon; 
+          dense.weights[i][j] -= 2 * epsilon;
+          double loss2 = model.Loss(X[0], Y[0]);
 
+          double num_dLoss_dWs = (loss1 - loss2) / (2 * epsilon);
+          cout << get<0>(dParam)[i][j] << endl;
+          cout << num_dLoss_dWs << endl;
+          cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j] << endl;
 
+          dense.weights[i][j] += epsilon;
+        }
+      }
+    }
 
     // // Intialize model and evaluate an example test
     // // Compound literal, (vector[]), helps initialize an array in function call
@@ -728,7 +745,7 @@ int main() {
     }
     image.push_back(channel);
     X.push_back(image);
-    Y[i] = rand() % 10;  // TODO: Maybe decrease number of classes for the test?
+    Y[i] = rand() % 2;  // TODO: Maybe decrease number of classes for the test?
   }
 
   // Look at first 2 "images"
@@ -745,28 +762,28 @@ int main() {
   // tests
 
   try {
-    // Flat convolution test
-    Conv::_convolve_test();
-    cout << "_convole_test done" << endl;
+    // // Flat convolution test
+    // Conv::_convolve_test();
+    // cout << "_convole_test done" << endl;
 
-    // Depth convolution test
-    Conv::convolve_test();
-    cout << "convole_test done" << endl;
+    // // Depth convolution test
+    // Conv::convolve_test();
+    // cout << "convole_test done" << endl;
 
-    // Flat max pool test
-    MaxPool::_max_pool_test();
-    cout << "_max_pool_test done" << endl;
+    // // Flat max pool test
+    // MaxPool::_max_pool_test();
+    // cout << "_max_pool_test done" << endl;
 
-    // TODO: make a depth maxpool test if necessary
+    // // TODO: make a depth maxpool test if necessary
 
-    Sigmoid::sigmoid_test();
-    cout << "sigmoid_test done" << endl;
+    // Sigmoid::sigmoid_test();
+    // cout << "sigmoid_test done" << endl;
 
-    Relu::relu_test();
-    cout << "relu_test done" << endl;
+    // Relu::relu_test();
+    // cout << "relu_test done" << endl;
 
-    Dense::h_test();
-    cout << "Dense h_test done" << endl;
+    // Dense::h_test();
+    // cout << "Dense h_test done" << endl;
 
     ConvNet::h_test(X, Y);
     cout << "ConvNet h_test done" << endl;
