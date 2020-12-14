@@ -520,32 +520,32 @@ class Dense : public Layer {
 class ConvNet {
  public:
   vector<Layer*> layers;
-  vector<vector<vector<vector<double>>>> as;
+  vector<vector<vector<vector<double>>>> a;
 
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
-    as.clear(); // Start with an empty vector of activations
-    vector<vector<vector<double>>> a = x;
+    a.clear();  // Start with an empty vector of activations
+    vector<vector<vector<double>>> feature_map = x;
     // as.push_back(a);
 
     for (Layer* layer : layers) {
-      vector<vector<vector<double>>> z = a;
+      vector<vector<vector<double>>> z = feature_map;
       if (Conv* conv = dynamic_cast<Conv*>(layer)) {
-        a = conv->h(z);
+        feature_map = conv->h(z);
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
-        a = pool->h(z);
+        feature_map = pool->h(z);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        a = act->h(z);
+        feature_map = act->h(z);
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
-        a = flatten->f(z);
+        feature_map = flatten->f(z);
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
-        a = dense->h(z);
+        feature_map = dense->h(z);
       }
-      as.push_back(a);
+      a.push_back(feature_map);
     }
 
-    return a;
+    return feature_map;
   }
 
   int predict(vector<vector<vector<double>>> x) {
@@ -565,7 +565,7 @@ class ConvNet {
     return label;
   }
 
-  //Calculate the loss function 
+  // Calculate the loss function
   double Loss(vector<vector<vector<double>>> x, int y) {
     if (y == 10) {
       throw(string) "Mismatch between label definition in Loss and incoming label!";
@@ -576,7 +576,7 @@ class ConvNet {
     vector<vector<vector<double>>> a = h(x);
     double acc{0};
     for (int i = 0; i < a.size(); i++) {
-      acc += (a[i][0][0] - y_vector[i]) * (a[i][0][0] - y_vector[i])/2;
+      acc += (a[i][0][0] - y_vector[i]) * (a[i][0][0] - y_vector[i]) / 2;
     }
     return acc;
   }
@@ -589,14 +589,14 @@ class ConvNet {
     NOTE: might need to make all weights into boxes
     */
 
-    vector<vector<vector<vector<double>>>> a;
+    // vector<vector<vector<vector<double>>>> a;
 
     vector<vector<vector<double>>> da_L_dz;
 
     vector<double> y_vector(10, 0);
     y_vector[y] = 1;
 
-    vector<tuple<vector<vector<double>>, vector<double>>> jacs;
+    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer;
 
     for (int L = layers.size() - 1; L >= 0; L--) {
       bool is_last_output_box = false;
@@ -606,7 +606,7 @@ class ConvNet {
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
         // a = pool->h(a);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        da_L_dz = act->da_dz(as[L - 1]);
+        da_L_dz = act->da_dz(a[L - 1]);
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
         // v = flatten->f(a);
         // is_last_output_box = true;
@@ -633,19 +633,19 @@ class ConvNet {
         vector<vector<double>> dweights(dense->num_out, vector<double>(dense->num_in, 0));
         for (int i = 0; i < dense->num_out; i++) {
           for (int j = 0; j < dense->num_in; j++) {
-            dweights[i][j] = (as[L+1][i][0][0] - y_vector[i]);
+            dweights[i][j] = (a[L + 1][i][0][0] - y_vector[i]);
             dweights[i][j] *= da_L_dz[i][0][0];
-            dweights[i][j] *= as[L-1][j][0][0];
+            dweights[i][j] *= a[L - 1][j][0][0];
           }
         }
 
         vector<double> dbiases(dense->num_out, 0);
 
         tuple<vector<vector<double>>, vector<double>> jac_tuple = make_tuple(dweights, dbiases);
-        jacs.push_back(jac_tuple);
+        dParam_per_layer.push_back(jac_tuple);
       }
     }
-    return jacs;
+    return dParam_per_layer;
   }
 
   void static h_test(vector<vector<vector<vector<double>>>> X, int Y[100]) {
@@ -661,30 +661,27 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-    vector<tuple<vector<vector<double>>, vector<double>>> jacs = model._calc_dLoss_dWs(Y[0]);
+    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dWs(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
     // TODO: gradient checking
 
-    tuple<vector<vector<double>>, vector<double>> to_Test = jacs[0];
-    double epsilon {0.001};
+    tuple<vector<vector<double>>, vector<double>> to_Test = dParam_per_layer[0];
+    double epsilon{0.001};
 
-
-    //Might be better to loop over descreasing values of epsilon
-    dense.weights[0][1] += epsilon; 
+    // Might be better to loop over descreasing values of epsilon
+    dense.weights[0][1] += epsilon;
     double num_Derv = model.Loss(X[0], Y[0]);
 
-    dense.weights[0][1] -= 2*epsilon;
+    dense.weights[0][1] -= 2 * epsilon;
     double num_Derv2 = model.Loss(X[0], Y[0]);
-    
-    double num_Derv3 = num_Derv - num_Derv2; 
-    double num_Derv4 = num_Derv3/(2*epsilon);
+
+    double num_Derv3 = num_Derv - num_Derv2;
+    double num_Derv4 = num_Derv3 / (2 * epsilon);
     cout << get<0>(to_Test)[0][1] << endl;
     cout << num_Derv4 << endl;
-    cout << "Difference in derivatives: " << num_Derv4 - get<0>(to_Test)[0][1] << endl;  
+    cout << "Difference in derivatives: " << num_Derv4 - get<0>(to_Test)[0][1] << endl;
 
-    dense.weights[0][1] += epsilon; 
-
-
+    dense.weights[0][1] += epsilon;
 
     // // Intialize model and evaluate an example test
     // // Compound literal, (vector[]), helps initialize an array in function call
