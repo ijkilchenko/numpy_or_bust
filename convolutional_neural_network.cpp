@@ -525,7 +525,9 @@ class ConvNet {
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
+
     a.clear();  // Start with an empty vector of activations
+
     vector<vector<vector<double>>> feature_map = x;
     // as.push_back(a);
 
@@ -542,21 +544,23 @@ class ConvNet {
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
         feature_map = dense->h(z);
       }
+
       a.push_back(feature_map);
+
     }
 
     return feature_map;
   }
 
   int predict(vector<vector<vector<double>>> x) {
-    vector<vector<vector<double>>> a = h(x);
+    vector<vector<vector<double>>> feature_map = h(x);
 
     // Take argmax of the output
     int label = 0;
-    cout << a[0][0][0] << ",";
-    for (int i = 1; i < a.size(); i++) {
-      cout << a[i][0][0] << ",";
-      if (a[label][0][0] < a[i][0][0]) {
+    cout << feature_map[0][0][0] << ",";
+    for (int i = 1; i < feature_map.size(); i++) {
+      cout << feature_map[i][0][0] << ",";
+      if (feature_map[label][0][0] < feature_map[i][0][0]) {
         label = i;
       }
     }
@@ -573,10 +577,12 @@ class ConvNet {
     vector<double> y_vector(10, 0);
     y_vector[y] = 1;
 
-    vector<vector<vector<double>>> a = h(x);
+    vector<vector<vector<double>>> feature_map = h(x);
     double acc{0};
-    for (int i = 0; i < a.size(); i++) {
-      acc += (a[i][0][0] - y_vector[i]) * (a[i][0][0] - y_vector[i]) / 2;
+
+    for (int i = 0; i < feature_map.size(); i++) {
+      acc += (feature_map[i][0][0] - y_vector[i]) * (feature_map[i][0][0] - y_vector[i]);
+
     }
     return acc;
   }
@@ -630,19 +636,23 @@ class ConvNet {
 
         */
 
-        vector<vector<double>> dweights(dense->num_out, vector<double>(dense->num_in, 0));
+        vector<vector<double>> dW(dense->num_out, vector<double>(dense->num_in, 0));
         for (int i = 0; i < dense->num_out; i++) {
           for (int j = 0; j < dense->num_in; j++) {
-            dweights[i][j] = (a[L + 1][i][0][0] - y_vector[i]);
-            dweights[i][j] *= da_L_dz[i][0][0];
-            dweights[i][j] *= a[L - 1][j][0][0];
+
+            dW[i][j] = (a[L][i][0][0] - y_vector[i]);
+            dW[i][j] *= da_L_dz[i][0][0];
+            dW[i][j] *= a[L - 1][j][0][0];
+
           }
         }
 
         vector<double> dbiases(dense->num_out, 0);
 
-        tuple<vector<vector<double>>, vector<double>> jac_tuple = make_tuple(dweights, dbiases);
-        dParam_per_layer.push_back(jac_tuple);
+
+        tuple<vector<vector<double>>, vector<double>> dW_tuple = make_tuple(dW, dbiases);
+        dParam_per_layer.push_back(dW_tuple);
+
       }
     }
     return dParam_per_layer;
@@ -661,8 +671,10 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
+
     vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
+
 
     for (int i = 0; i < dense.num_out; i++) {
       for (int j = 0; j < dense.num_out; j++) {
