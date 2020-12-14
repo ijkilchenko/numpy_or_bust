@@ -525,37 +525,37 @@ class ConvNet {
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
-    vector<vector<vector<double>>> a = x;
+    vector<vector<vector<double>>> feature_map = x;
     // as.push_back(a);
 
     for (Layer* layer : layers) {
-      vector<vector<vector<double>>> z = a;
+      vector<vector<vector<double>>> z = feature_map;
       if (Conv* conv = dynamic_cast<Conv*>(layer)) {
-        a = conv->h(z);
+        feature_map = conv->h(z);
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
-        a = pool->h(z);
+        feature_map = pool->h(z);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        a = act->h(z);
+        feature_map = act->h(z);
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
-        a = flatten->f(z);
+        feature_map = flatten->f(z);
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
-        a = dense->h(z);
+        feature_map = dense->h(z);
       }
-      as.push_back(a);
+      as.push_back(feature_map);
     }
 
-    return a;
+    return feature_map;
   }
 
   int predict(vector<vector<vector<double>>> x) {
-    vector<vector<vector<double>>> a = h(x);
+    vector<vector<vector<double>>> feature_map = h(x);
 
     // Take argmax of the output
     int label = 0;
-    cout << a[0][0][0] << ",";
-    for (int i = 1; i < a.size(); i++) {
-      cout << a[i][0][0] << ",";
-      if (a[label][0][0] < a[i][0][0]) {
+    cout << feature_map[0][0][0] << ",";
+    for (int i = 1; i < feature_map.size(); i++) {
+      cout << feature_map[i][0][0] << ",";
+      if (feature_map[label][0][0] < feature_map[i][0][0]) {
         label = i;
       }
     }
@@ -572,10 +572,10 @@ class ConvNet {
     vector<double> y_vector(10, 0);
     y_vector[y] = 1;
 
-    vector<vector<vector<double>>> a = h(x);
+    vector<vector<vector<double>>> feature_map = h(x);
     double acc{0};
-    for (int i = 0; i < a.size(); i++) {
-      acc += (a[i][0][0] - y_vector[i]) * (a[i][0][0] - y_vector[i]);
+    for (int i = 0; i < feature_map.size(); i++) {
+      acc += (feature_map[i][0][0] - y_vector[i]) * (feature_map[i][0][0] - y_vector[i]);
     }
     return acc;
   }
@@ -595,7 +595,7 @@ class ConvNet {
     vector<double> y_vector(10, 0);
     y_vector[y] = 1;
 
-    vector<tuple<vector<vector<double>>, vector<double>>> jacs;
+    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer;
 
     for (int L = layers.size() - 1; L >= 0; L--) {
       bool is_last_output_box = false;
@@ -629,22 +629,22 @@ class ConvNet {
 
         */
 
-        vector<vector<double>> dweights(dense->num_out, vector<double>(dense->num_in, 0));
+        vector<vector<double>> dW(dense->num_out, vector<double>(dense->num_in, 0));
         for (int i = 0; i < dense->num_out; i++) {
           for (int j = 0; j < dense->num_in; j++) {
-            dweights[i][j] = (as[L][i][0][0] - y_vector[i]);
-            dweights[i][j] *= da_L_dz[i][0][0];
-            dweights[i][j] *= as[L - 1][j][0][0];
+            dW[i][j] = (a[L][i][0][0] - y_vector[i]);
+            dW[i][j] *= da_L_dz[i][0][0];
+            dW[i][j] *= a[L - 1][j][0][0];
           }
         }
 
         vector<double> dbiases(dense->num_out, 0);
 
-        tuple<vector<vector<double>>, vector<double>> jac_tuple = make_tuple(dweights, dbiases);
-        jacs.push_back(jac_tuple);
+        tuple<vector<vector<double>>, vector<double>> dW_tuple = make_tuple(dW, dbiases);
+        dParam_per_layer.push_back(dW_tuple);
       }
     }
-    return jacs;
+    return dParam_per_layer;
   }
 
   void static h_test(vector<vector<vector<vector<double>>>> X, int Y[100]) {
@@ -660,11 +660,11 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-    vector<tuple<vector<vector<double>>, vector<double>>> jacs = model._calc_dLoss_dWs(Y[0]);
+    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dWs(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
     // TODO: gradient checking
 
-    tuple<vector<vector<double>>, vector<double>> to_Test = jacs[0];
+    tuple<vector<vector<double>>, vector<double>> to_Test = dParam_per_layer[0];
     double epsilon {0.00001}; 
 
 
