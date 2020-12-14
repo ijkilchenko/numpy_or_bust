@@ -20,7 +20,7 @@ class Layer {
 
   // Helper functions
   static void rand_init(vector<vector<double>>& matrix, int height, int width) {
-    srand(2);  // Remove to stop seeding rand()
+    srand(time(NULL));  // Remove to stop seeding rand()
 
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
@@ -33,7 +33,7 @@ class Layer {
   }
 
   static void rand_init(vector<double>& matrix, int length) {
-    srand(2);  // Remove to stop seeding rand()
+    srand(time(NULL));  // Remove to stop seeding rand()
     for (int i = 0; i < length; i++) {
       // use numbers between -10 and 10
       double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -581,7 +581,7 @@ class ConvNet {
     return acc;
   }
 
-  vector<tuple<vector<vector<double>>, vector<double>>> _calc_dLoss_dWs(int y) {
+  vector<tuple<vector<vector<double>>, vector<double>>> _calc_dLoss_dParam(int y) {
     /*
     Return data type:
     For every layer, we need a vector
@@ -661,27 +661,33 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dWs(Y[0]);
+    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
-    // TODO: gradient checking
 
-    tuple<vector<vector<double>>, vector<double>> to_Test = dParam_per_layer[0];
-    double epsilon{0.001};
+    for (int i = 0; i < dense.num_out; i++) {
+      for (int j = 0; j < dense.num_out; j++) {
+        if (!(i == 0 && j == 0) && (rand() % 100) < 30) {
+          continue;
+        } else {
+          tuple<vector<vector<double>>, vector<double>> dParam = dParam_per_layer[0];
+          double epsilon{0.001};
 
-    // Might be better to loop over descreasing values of epsilon
-    dense.weights[0][1] += epsilon;
-    double num_Derv = model.Loss(X[0], Y[0]);
+          // Might be better to loop over descreasing values of epsilon
+          dense.weights[i][j] += epsilon;
+          double loss1 = model.Loss(X[0], Y[0]);
 
-    dense.weights[0][1] -= 2 * epsilon;
-    double num_Derv2 = model.Loss(X[0], Y[0]);
+          dense.weights[i][j] -= 2 * epsilon;
+          double loss2 = model.Loss(X[0], Y[0]);
 
-    double num_Derv3 = num_Derv - num_Derv2;
-    double num_Derv4 = num_Derv3 / (2 * epsilon);
-    cout << get<0>(to_Test)[0][1] << endl;
-    cout << num_Derv4 << endl;
-    cout << "Difference in derivatives: " << num_Derv4 - get<0>(to_Test)[0][1] << endl;
+          double num_dLoss_dWs = (loss1 - loss2) / (2 * epsilon);
+          cout << get<0>(dParam)[i][j] << endl;
+          cout << num_dLoss_dWs << endl;
+          cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j] << endl;
 
-    dense.weights[0][1] += epsilon;
+          dense.weights[i][j] += epsilon;
+        }
+      }
+    }
 
     // // Intialize model and evaluate an example test
     // // Compound literal, (vector[]), helps initialize an array in function call
