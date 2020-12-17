@@ -1,6 +1,7 @@
 #include <math.h>
 
 #include <iostream>
+#include <map>
 #include <regex>
 #include <string>
 #include <tuple>
@@ -521,20 +522,25 @@ class ConvNet {
  public:
   vector<Layer*> layers;
   vector<vector<vector<vector<double>>>> a;
+  map<int, int> layer_map;
 
   ConvNet(vector<Layer*> layers) { this->layers = layers; }
 
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x) {
-
     a.clear();  // Start with an empty vector of activations
 
     vector<vector<vector<double>>> feature_map = x;
     // as.push_back(a);
 
-    for (Layer* layer : layers) {
+    int l = 0;
+    for (int L = 0; L < layers.size(); L++) {
+      Layer* layer = layers[L];
+
       vector<vector<vector<double>>> z = feature_map;
       if (Conv* conv = dynamic_cast<Conv*>(layer)) {
         feature_map = conv->h(z);
+        layer_map[l] = L;
+        l++;
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
         feature_map = pool->h(z);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
@@ -543,10 +549,11 @@ class ConvNet {
         feature_map = flatten->f(z);
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
         feature_map = dense->h(z);
+        layer_map[l] = L;
+        l++;
       }
 
       a.push_back(feature_map);
-
     }
 
     return feature_map;
@@ -581,8 +588,7 @@ class ConvNet {
     double acc{0};
 
     for (int i = 0; i < feature_map.size(); i++) {
-      acc += (feature_map[i][0][0] - y_vector[i]) * (feature_map[i][0][0] - y_vector[i])/2;
-
+      acc += (feature_map[i][0][0] - y_vector[i]) * (feature_map[i][0][0] - y_vector[i]) / 2;
     }
     return acc;
   }
@@ -621,44 +627,50 @@ class ConvNet {
         L(x, y) = \sum_i^I 1/2(a_i^L - y_i)^2
         Dense + Act:
         dLoss/dW_(output_sigmal, incoming_signal)
-        dLoss/dW_{i,j} = dLoss/da_i^L da_i^L/dz_i dz_i/dw_{i,j}
+        dLoss/dW_{i,j} = dz_i/dW_{i,j} da_i^L/dz_i dLoss/da_i^L
+
+        dLoss/dW_{i,j}^{L-1} = dz_i^{L-1}/dW_{i,j}^{L-1} * da_i^{L-1}/dz_i^{L-1} * ...
+          \sum_k^{num_neurons_in_L} (dz_k^L/dW_{k,i}^L=a_i^{L-1})
+
+        a^L = g(z^L)
+        z^L = W^L*a^{L-1}
 
         dLoss/da_i^L = (a_i^L - y_i)
 
         da_i^L/dz_i = (above)
 
         dz_i^L/dw_{i,j} = a_j^{L-1}
+        dz_i^{L-1}/dW_{i,j}^{L-1} = a_j^{L-2}
 
         //TODO
         dLoss/dB_i = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dB_i
         ...
-
-
         */
 
+        // L|type = 0,flatten; 1,dense; 2,sigmoid
+        // layer_map = {1: 0}
+
+        // a[L+1] but refer to that as a[l]
+        // L=1
         vector<vector<double>> dW(dense->num_out, vector<double>(dense->num_in, 0));
         for (int i = 0; i < dense->num_out; i++) {
           for (int j = 0; j < dense->num_in; j++) {
-
-            dW[i][j] = (a[L+1][i][0][0] - y_vector[i]);
+            dW[i][j] = (a[L + 1][i][0][0] - y_vector[i]);  // Want: a[L] or a[l] using layer_map
             dW[i][j] *= da_L_dz[i][0][0];
             dW[i][j] *= a[L - 1][j][0][0];
-
           }
         }
 
         vector<double> dbiases(dense->num_out, 0);
 
-
         tuple<vector<vector<double>>, vector<double>> dW_tuple = make_tuple(dW, dbiases);
         dParam_per_layer.push_back(dW_tuple);
-
       }
     }
     return dParam_per_layer;
   }
 
-  void static h_test(vector<vector<vector<vector<double>>>> X, int Y[100]) {
+  void static h_test_1(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
     Dense dense = Dense(4, 2);
     Sigmoid sigmoid = Sigmoid();
@@ -671,10 +683,8 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-
     vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
-
 
     for (int i = 0; i < dense.num_out; i++) {
       for (int j = 0; j < dense.num_out; j++) {
@@ -700,7 +710,52 @@ class ConvNet {
         }
       }
     }
+  }
 
+  void static h_test_2(vector<vector<vector<vector<double>>>> X, int Y[100]) {
+    Flatten flatten = Flatten();
+    Dense dense1 = Dense(4, 4);
+    Dense dense2 = Dense(4, 2);
+    Sigmoid sigmoid = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &dense2, &sigmoid});
+    // Do a forward pass with the first "image"
+    int label = model.predict(X[0]);
+    cout << label << endl;
+
+    if (!(label >= 0 && 10 > label)) {
+      throw(string) "Test failed! " + (string) __FUNCTION__;
+    }
+
+    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
+    // (L(W+h) - L(W-h))/(2*h)
+
+    for (int i = 0; i < dense1.num_out; i++) {
+      for (int j = 0; j < dense1.num_out; j++) {
+        if (!(i == 0 && j == 0) && (rand() % 100) < 30) {
+          continue;
+        } else {
+          tuple<vector<vector<double>>, vector<double>> dParam = dParam_per_layer[0];
+          double epsilon{0.001};
+
+          // Might be better to loop over descreasing values of epsilon
+          dense1.weights[i][j] += epsilon;
+          double loss1 = model.Loss(X[0], Y[0]);
+
+          dense1.weights[i][j] -= 2 * epsilon;
+          double loss2 = model.Loss(X[0], Y[0]);
+
+          double num_dLoss_dWs = (loss1 - loss2) / (2 * epsilon);
+          cout << get<0>(dParam)[i][j] << endl;
+          cout << num_dLoss_dWs << endl;
+          cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j] << endl;
+
+          dense1.weights[i][j] += epsilon;
+        }
+      }
+    }
+  }
+
+  void static h_test_3(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     // // Intialize model and evaluate an example test
     // // Compound literal, (vector[]), helps initialize an array in function call
     // Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
@@ -785,7 +840,7 @@ int main() {
     // Dense::h_test();
     // cout << "Dense h_test done" << endl;
 
-    ConvNet::h_test(X, Y);
+    ConvNet::h_test_1(X, Y);
     cout << "ConvNet h_test done" << endl;
 
   } catch (string my_exception) {
