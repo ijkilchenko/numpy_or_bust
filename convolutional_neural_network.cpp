@@ -581,7 +581,7 @@ class ConvNet {
     double acc{0};
 
     for (int i = 0; i < feature_map.size(); i++) {
-      acc += (feature_map[i][0][0] - y_vector[i]) * (feature_map[i][0][0] - y_vector[i]);
+      acc += (feature_map[i][0][0] - y_vector[i]) * (feature_map[i][0][0] - y_vector[i])/2;
 
     }
     return acc;
@@ -640,7 +640,7 @@ class ConvNet {
         for (int i = 0; i < dense->num_out; i++) {
           for (int j = 0; j < dense->num_in; j++) {
 
-            dW[i][j] = (a[L][i][0][0] - y_vector[i]);
+            dW[i][j] = (a[L+1][i][0][0] - y_vector[i]);
             dW[i][j] *= da_L_dz[i][0][0];
             dW[i][j] *= a[L - 1][j][0][0];
 
