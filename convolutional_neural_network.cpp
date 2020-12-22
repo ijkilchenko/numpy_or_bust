@@ -603,7 +603,7 @@ class ConvNet {
 
     // vector<vector<vector<vector<double>>>> a;
 
-    vector<vector<vector<double>>> da_L_dz;
+    vector<vector<vector<vector<double>>>> da_L_dz_L_per_layer (layers.size(), {{{}}});
 
     vector<double> y_vector(10, 0);
     y_vector[y] = 1;
@@ -618,46 +618,76 @@ class ConvNet {
       } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
         // a = pool->h(a);
       } else if (Act* act = dynamic_cast<Act*>(layer)) {
-        da_L_dz = act->da_dz(a[L - 1]);
+        /*
+        For sigmoid: g'(a)
+        */
+        da_L_dz_L_per_layer[L-1] = act->da_dz(a[L - 1]);
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
         // v = flatten->f(a);
         // is_last_output_box = true;
       } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
         /*
-        L(x, y) = \sum_i^I 1/2(a_i^L - y_i)^2
         Dense + Act:
         dLoss/dW_(output_sigmal, incoming_signal)
-        dLoss/dW_{i,j} = dz_i/dW_{i,j} da_i^L/dz_i dLoss/da_i^L
+
+        dLoss/dW_{i,j}^L = dz_i^L/dW_{i,j}^L * [da_i^L/dz_i^L * dLoss/da_i^L]
 
         dLoss/dW_{i,j}^{L-1} = dz_i^{L-1}/dW_{i,j}^{L-1} * da_i^{L-1}/dz_i^{L-1} * ...
-          \sum_k^{num_neurons_in_L} (dz_k^L/dW_{k,i}^L=a_i^{L-1})
+          \sum_k^{num_neurons_in_L} (dz_k^L/da_i^{L-1} * [da_k^L/dz_k^L * ...])
 
+        L(x, y) = \sum_i^I 1/2(a_i^L - y_i)^2
         a^L = g(z^L)
         z^L = W^L*a^{L-1}
 
-        dLoss/da_i^L = (a_i^L - y_i)
+        dz_i^L/dw_{i,j}^L = a_j^{L-1}           ok
+        dz_i^{L-1}/dW_{i,j}^{L-1} = a_j^{L-2}   ok
 
-        da_i^L/dz_i = (above)
+        da_i^L/dz_i^L = (above)                 ok
+        da_i^{L-1}/dz_i^{L-1} = (above)         ok
 
-        dz_i^L/dw_{i,j} = a_j^{L-1}
-        dz_i^{L-1}/dW_{i,j}^{L-1} = a_j^{L-2}
+        dz_k^L/da_i^{L-1} = W_{k,i}^L           ok
+
+        dLoss/da_i^L = (a_i^L - y_i)            ok
 
         //TODO
         dLoss/dB_i = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dB_i
         ...
         */
 
-        // L|type = 0,flatten; 1,dense; 2,sigmoid
-        // layer_map = {1: 0}
-
-        // a[L+1] but refer to that as a[l]
-        // L=1
         vector<vector<double>> dW(dense->num_out, vector<double>(dense->num_in, 0));
-        for (int i = 0; i < dense->num_out; i++) {
-          for (int j = 0; j < dense->num_in; j++) {
-            dW[i][j] = (a[L + 1][i][0][0] - y_vector[i]);  // Want: a[L] or a[l] using layer_map
-            dW[i][j] *= da_L_dz[i][0][0];
-            dW[i][j] *= a[L - 1][j][0][0];
+        if (L == layers.size() - 2) {
+          for (int i = 0; i < dense->num_out; i++) {
+            for (int j = 0; j < dense->num_in; j++) {
+              dW[i][j] = a[L - 1][j][0][0];
+              dW[i][j] *= da_L_dz_L_per_layer[L][i][0][0];
+              dW[i][j] *= (a[L + 1][i][0][0] - y_vector[i]);
+            }
+          }
+        } else { // runs when L = layers.size() - 4
+        /*
+        layers.size() - 1 Final activation
+        layers.size() - 2 Last Dense layer
+        layers.size() - 3 Second to last activation
+        layers.size() - 4 Second to last (Dense) layer 
+        */
+          for (int i = 0; i < dense->num_out; i++) {
+            for (int j = 0; j < dense->num_in; j++) {
+              dW[i][j] = a[L - 1][j][0][0];
+              dW[i][j] *= da_L_dz_L_per_layer[L][i][0][0];
+
+              double sum = 0;
+
+              Dense* next_dense = dynamic_cast<Dense*>(layers[L+2]);
+
+              for (int k = 0; k < next_dense -> num_in; k++) {
+                double part_sum = next_dense->weights[k][i];
+                part_sum *= da_L_dz_L_per_layer[L+2][i][0][0];
+                part_sum *= (a[L + 3][i][0][0] - y_vector[i]);
+                
+                sum += part_sum;
+              }
+              dW[i][j] *= sum;
+            }
           }
         }
 
@@ -715,9 +745,10 @@ class ConvNet {
   void static h_test_2(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
     Dense dense1 = Dense(4, 4);
+    Sigmoid sigmoid1 = Sigmoid();
     Dense dense2 = Dense(4, 2);
-    Sigmoid sigmoid = Sigmoid();
-    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &dense2, &sigmoid});
+    Sigmoid sigmoid2 = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
     // Do a forward pass with the first "image"
     int label = model.predict(X[0]);
     cout << label << endl;
@@ -843,6 +874,8 @@ int main() {
     ConvNet::h_test_1(X, Y);
     cout << "ConvNet h_test done" << endl;
 
+    ConvNet::h_test_2(X, Y);
+    cout << "ConvNet h_test done" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
