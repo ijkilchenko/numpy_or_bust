@@ -603,7 +603,7 @@ class ConvNet {
 
     // vector<vector<vector<vector<double>>>> a;
 
-    vector<vector<vector<vector<double>>>> da_L_dz_L_per_layer (layers.size(), {{{}}});
+    vector<vector<vector<vector<double>>>> da_L_dz_L_per_layer(layers.size(), {{{}}});
 
     vector<double> y_vector(10, 0);
     y_vector[y] = 1;
@@ -621,7 +621,7 @@ class ConvNet {
         /*
         For sigmoid: g'(a)
         */
-        da_L_dz_L_per_layer[L-1] = act->da_dz(a[L - 1]);
+        da_L_dz_L_per_layer[L - 1] = act->da_dz(a[L - 1]);
       } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
         // v = flatten->f(a);
         // is_last_output_box = true;
@@ -663,13 +663,13 @@ class ConvNet {
               dW[i][j] *= (a[L + 1][i][0][0] - y_vector[i]);
             }
           }
-        } else { // runs when L = layers.size() - 4
-        /*
-        layers.size() - 1 Final activation
-        layers.size() - 2 Last Dense layer
-        layers.size() - 3 Second to last activation
-        layers.size() - 4 Second to last (Dense) layer 
-        */
+        } else {  // runs when L = layers.size() - 4
+                  /*
+                  layers.size() - 1 Final activation
+                  layers.size() - 2 Last Dense layer
+                  layers.size() - 3 Second to last activation
+                  layers.size() - 4 Second to last (Dense) layer
+                  */
           for (int i = 0; i < dense->num_out; i++) {
             for (int j = 0; j < dense->num_in; j++) {
               dW[i][j] = a[L - 1][j][0][0];
@@ -677,13 +677,13 @@ class ConvNet {
 
               double sum = 0;
 
-              Dense* next_dense = dynamic_cast<Dense*>(layers[L+2]);
+              Dense* next_dense = dynamic_cast<Dense*>(layers[L + 2]);
 
-              for (int k = 0; k < next_dense -> num_in; k++) {
+              for (int k = 0; k < next_dense->num_out; k++) {
                 double part_sum = next_dense->weights[k][i];
-                part_sum *= da_L_dz_L_per_layer[L+2][i][0][0];
-                part_sum *= (a[L + 3][i][0][0] - y_vector[i]);
-                
+                part_sum *= da_L_dz_L_per_layer[L + 2][k][0][0];
+                part_sum *= (a[L + 3][k][0][0] - y_vector[k]);
+
                 sum += part_sum;
               }
               dW[i][j] *= sum;
@@ -765,8 +765,8 @@ class ConvNet {
         if (!(i == 0 && j == 0) && (rand() % 100) < 30) {
           continue;
         } else {
-          tuple<vector<vector<double>>, vector<double>> dParam = dParam_per_layer[0];
-          double epsilon{0.001};
+          tuple<vector<vector<double>>, vector<double>> dParam = dParam_per_layer[1];
+          double epsilon{.001};
 
           // Might be better to loop over descreasing values of epsilon
           dense1.weights[i][j] += epsilon;
@@ -848,34 +848,34 @@ int main() {
   // tests
 
   try {
-    // // Flat convolution test
-    // Conv::_convolve_test();
-    // cout << "_convole_test done" << endl;
+    // Flat convolution test
+    Conv::_convolve_test();
+    cout << "_convole_test done" << endl;
 
-    // // Depth convolution test
-    // Conv::convolve_test();
-    // cout << "convole_test done" << endl;
+    // Depth convolution test
+    Conv::convolve_test();
+    cout << "convole_test done" << endl;
 
-    // // Flat max pool test
-    // MaxPool::_max_pool_test();
-    // cout << "_max_pool_test done" << endl;
+    // Flat max pool test
+    MaxPool::_max_pool_test();
+    cout << "_max_pool_test done" << endl;
 
-    // // TODO: make a depth maxpool test if necessary
+    // TODO: make a depth maxpool test if necessary
 
-    // Sigmoid::sigmoid_test();
-    // cout << "sigmoid_test done" << endl;
+    Sigmoid::sigmoid_test();
+    cout << "sigmoid_test done" << endl;
 
-    // Relu::relu_test();
-    // cout << "relu_test done" << endl;
+    Relu::relu_test();
+    cout << "relu_test done" << endl;
 
-    // Dense::h_test();
-    // cout << "Dense h_test done" << endl;
+    Dense::h_test();
+    cout << "Dense h_test done" << endl;
 
     ConvNet::h_test_1(X, Y);
-    cout << "ConvNet h_test done" << endl;
+    cout << "ConvNet h_test1 done" << endl;
 
     ConvNet::h_test_2(X, Y);
-    cout << "ConvNet h_test done" << endl;
+    cout << "ConvNet h_test2 done" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
