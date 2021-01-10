@@ -508,7 +508,7 @@ class Dense : public Layer {
     d.biases = {0, 0, 0, 0, 0};
 
     vector<vector<vector<double>>> output = d.h(a);
-    vector<vector<vector<double>>> expected_output = {{{1}}, {{2}}, {{3}}, {{0}}, {{0}}, {{0}}};
+    vector<vector<vector<double>>> expected_output = {{{1}}, {{2}}, {{3}}, {{0}}, {{0}}};
     for (int i = 0; i < output.size(); i++) {
       if (output[i][0][0] != expected_output[i][0][0]) {
         throw(string) "Test failed! " + (string) __FUNCTION__;
@@ -522,9 +522,24 @@ class Dense : public Layer {
     d2.biases = {0, 0, 0, 0, 0};
 
     vector<vector<vector<double>>> output2 = d2.h(a2);
-    vector<vector<vector<double>>> expected_output2 = {{{3}}, {{11}}, {{3}}, {{1}}, {{4}}, {{0}}};
+    vector<vector<vector<double>>> expected_output2 = {{{3}}, {{11}}, {{3}}, {{1}}, {{4}}};
     for (int i = 0; i < output2.size(); i++) {
       if (output2[i][0][0] != expected_output2[i][0][0]) {
+        throw(string) "Test failed! " + (string) __FUNCTION__;
+      }
+    }
+
+    vector<vector<vector<double>>> a3{{{1}}, {{2}}, {{3}}};
+
+    Dense d3 = Dense(3, 5);
+    d3.weights = {{{1}, {1}, {0}}, {{0}, {1}, {3}}, {{0}, {0}, {1}}, {{1}, {0}, {0}}, {{0}, {2}, {0}}};
+    d3.biases = {1, 1, 1, 2, -1};
+
+    vector<vector<vector<double>>> output3 = d3.h(a3);
+    vector<vector<vector<double>>> expected_output3 = {{{4}}, {{12}}, {{4}}, {{3}}, {{3}}};
+    for (int i = 0; i < output2.size(); i++) {
+      cout << output3[i][0][0] << endl;
+      if (output3[i][0][0] != expected_output3[i][0][0]) {
         throw(string) "Test failed! " + (string) __FUNCTION__;
       }
     }
