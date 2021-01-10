@@ -621,7 +621,7 @@ class ConvNet {
     return acc;
   }
 
-  vector<tuple<vector<vector<double>>, vector<double>>> _calc_dLoss_dParam(int y) {
+  vector<tuple<vector<vector<vector<double>>>, vector<double>>> _calc_dLoss_dParam(int y) {
     /*
     Return data type:
     For every layer, we need a vector
@@ -636,7 +636,7 @@ class ConvNet {
     vector<double> y_vector(10, 0);
     y_vector[y] = 1;
 
-    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer;
+    vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_per_layer;
 
     for (int L = layers.size() - 1; L >= 0; L--) {
       bool is_last_output_box = false;
@@ -682,13 +682,13 @@ class ConvNet {
         ...
         */
 
-        vector<vector<double>> dW(dense->num_out, vector<double>(dense->num_in, 0));
+        vector<vector<vector<double>>> dW(dense->num_out, vector<vector<double>>(dense->num_in, vector<double>(1,0)));
         if (L == layers.size() - 2) {
           for (int i = 0; i < dense->num_out; i++) {
             for (int j = 0; j < dense->num_in; j++) {
-              dW[i][j] = a[L - 1][j][0][0];
-              dW[i][j] *= da_L_dz_L_per_layer[L][i][0][0];
-              dW[i][j] *= (a[L + 1][i][0][0] - y_vector[i]);
+              dW[i][j][0] = a[L - 1][j][0][0];
+              dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0];
+              dW[i][j][0] *= (a[L + 1][i][0][0] - y_vector[i]);
             }
           }
         } else {  // runs when L = layers.size() - 4
@@ -700,8 +700,8 @@ class ConvNet {
                   */
           for (int i = 0; i < dense->num_out; i++) {
             for (int j = 0; j < dense->num_in; j++) {
-              dW[i][j] = a[L - 1][j][0][0];
-              dW[i][j] *= da_L_dz_L_per_layer[L][i][0][0];
+              dW[i][j][0] = a[L - 1][j][0][0];
+              dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0];
 
               double sum = 0;
 
@@ -714,14 +714,14 @@ class ConvNet {
 
                 sum += part_sum;
               }
-              dW[i][j] *= sum;
+              dW[i][j][0] *= sum;
             }
           }
         }
 
         vector<double> dbiases(dense->num_out, 0);
 
-        tuple<vector<vector<double>>, vector<double>> dW_tuple = make_tuple(dW, dbiases);
+        tuple<vector<vector<vector<double>>>, vector<double>> dW_tuple = make_tuple(dW, dbiases);
         dParam_per_layer.push_back(dW_tuple);
       }
     }
@@ -741,7 +741,7 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
+    vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
 
     for (int i = 0; i < dense.num_out; i++) {
@@ -749,7 +749,7 @@ class ConvNet {
         if (!(i == 0 && j == 0) && (rand() % 100) < 30) {
           continue;
         } else {
-          tuple<vector<vector<double>>, vector<double>> dParam = dParam_per_layer[0];
+          tuple<vector<vector<vector<double>>>, vector<double>> dParam = dParam_per_layer[0];
           double epsilon{0.001};
 
           // Might be better to loop over descreasing values of epsilon
@@ -760,9 +760,9 @@ class ConvNet {
           double loss2 = model.Loss(X[0], Y[0]);
 
           double num_dLoss_dWs = (loss1 - loss2) / (2 * epsilon);
-          cout << get<0>(dParam)[i][j] << endl;
+          cout << get<0>(dParam)[i][j][0] << endl;
           cout << num_dLoss_dWs << endl;
-          cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j] << endl;
+          cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j][0] << endl;
 
           dense.weights[i][j][0] += epsilon;
         }
@@ -785,7 +785,7 @@ class ConvNet {
       throw(string) "Test failed! " + (string) __FUNCTION__;
     }
 
-    vector<tuple<vector<vector<double>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
+    vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
     // (L(W+h) - L(W-h))/(2*h)
 
     for (int i = 0; i < dense1.num_out; i++) {
@@ -793,7 +793,7 @@ class ConvNet {
         if (!(i == 0 && j == 0) && (rand() % 100) < 30) {
           continue;
         } else {
-          tuple<vector<vector<double>>, vector<double>> dParam = dParam_per_layer[1];
+          tuple<vector<vector<vector<double>>>, vector<double>> dParam = dParam_per_layer[1];
           double epsilon{.001};
 
           // Might be better to loop over descreasing values of epsilon
@@ -804,9 +804,9 @@ class ConvNet {
           double loss2 = model.Loss(X[0], Y[0]);
 
           double num_dLoss_dWs = (loss1 - loss2) / (2 * epsilon);
-          cout << get<0>(dParam)[i][j] << endl;
+          cout << get<0>(dParam)[i][j][0] << endl;
           cout << num_dLoss_dWs << endl;
-          cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j] << endl;
+          cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j][0] << endl;
 
           dense1.weights[i][j][0] += epsilon;
         }
