@@ -462,15 +462,15 @@ class Flatten : public Layer {
 
 class Dense : public Layer {
  public:
-  int num_in;
   int num_out;
+  int num_in;
 
   vector<vector<vector<double>>> weights;
   vector<double> biases;
 
-  Dense(int num_in, int num_out) {
-    this->num_in = num_in;
+  Dense(int num_out, int num_in) {
     this->num_out = num_out;
+    this->num_in = num_in;
 
     // Initialize weights with all values zero, then set all weights to a random value
     this->weights = vector<vector<vector<double>>>(num_out, vector<vector<double>>(num_in, vector<double>(1, 0)));
@@ -503,7 +503,7 @@ class Dense : public Layer {
   void static h_test() {
     vector<vector<vector<double>>> a{{{1}}, {{2}}, {{3}}};  // e.g. a[0] = {{1}};
 
-    Dense d = Dense(3, 5);
+    Dense d = Dense(5, 3);
     d.weights = {{{1}, {0}, {0}}, {{0}, {1}, {0}}, {{0}, {0}, {1}}, {{0}, {0}, {0}}, {{0}, {0}, {0}}};
     d.biases = {0, 0, 0, 0, 0};
 
@@ -517,7 +517,7 @@ class Dense : public Layer {
 
     vector<vector<vector<double>>> a2{{{1}}, {{2}}, {{3}}};
 
-    Dense d2 = Dense(3, 5);
+    Dense d2 = Dense(5, 3);
     d2.weights = {{{1}, {1}, {0}}, {{0}, {1}, {3}}, {{0}, {0}, {1}}, {{1}, {0}, {0}}, {{0}, {2}, {0}}};
     d2.biases = {0, 0, 0, 0, 0};
 
@@ -531,7 +531,7 @@ class Dense : public Layer {
 
     vector<vector<vector<double>>> a3{{{1}}, {{2}}, {{3}}};
 
-    Dense d3 = Dense(3, 5);
+    Dense d3 = Dense(5, 3);
     d3.weights = {{{1}, {1}, {0}}, {{0}, {1}, {3}}, {{0}, {0}, {1}}, {{1}, {0}, {0}}, {{0}, {2}, {0}}};
     d3.biases = {1, 1, 1, 2, -1};
 
@@ -730,7 +730,7 @@ class ConvNet {
 
   void static h_test_1(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(4, 2);
+    Dense dense = Dense(2, 4);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -774,7 +774,7 @@ class ConvNet {
     Flatten flatten = Flatten();
     Dense dense1 = Dense(4, 4);
     Sigmoid sigmoid1 = Sigmoid();
-    Dense dense2 = Dense(4, 2);
+    Dense dense2 = Dense(2, 4);
     Sigmoid sigmoid2 = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
     // Do a forward pass with the first "image"
@@ -821,7 +821,7 @@ class ConvNet {
     // MaxPool pool = MaxPool(2);
     // Relu relu = Relu();
     // Flatten flatten = Flatten();
-    // Dense dense = Dense(338, 10);
+    // Dense dense = Dense(10, 338);
     // Sigmoid sigmoid = Sigmoid();
     // ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
     // // Do a forward pass with the first "image"
