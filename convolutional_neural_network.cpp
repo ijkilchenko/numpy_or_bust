@@ -20,6 +20,19 @@ class Layer {
   vector<vector<vector<double>>> h(vector<vector<vector<double>>> x);
 
   // Helper functions
+  static void rand_init(vector<vector<vector<double>>>& tensor, int height, int width) {
+    srand(time(NULL));  // Remove to stop seeding rand()
+
+    for (int i = 0; i < height; i++) {
+      for (int j = 0; j < width; j++) {
+        // use numbers between -10 and 10
+        double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
+        n = n * 2 - 1;
+        tensor[i][j][0] = n;  // (possibly) change to use float to save memory
+      }
+    }
+  }
+
   static void rand_init(vector<vector<double>>& matrix, int height, int width) {
     srand(time(NULL));  // Remove to stop seeding rand()
 
@@ -452,7 +465,7 @@ class Dense : public Layer {
   int num_in;
   int num_out;
 
-  vector<vector<double>> weights;
+  vector<vector<vector<double>>> weights;
   vector<double> biases;
 
   Dense(int num_in, int num_out) {
@@ -460,7 +473,7 @@ class Dense : public Layer {
     this->num_out = num_out;
 
     // Initialize weights with all values zero, then set all weights to a random value
-    this->weights = vector<vector<double>>(num_out, vector<double>(num_in, 0));
+    this->weights = vector<vector<vector<double>>>(num_out, vector<vector<double>>(num_in, vector<double>(1, 0)));
     rand_init(weights, num_out, num_in);
 
     // Initialize biases with all values zero, then set all biases to a random value
@@ -478,7 +491,7 @@ class Dense : public Layer {
     for (int i = 0; i < num_out; i++) {
       double z = biases[i];
       for (int j = 0; j < num_in; j++) {
-        z = z + weights[i][j] * a[j][0][0];
+        z = z + weights[i][j][0] * a[j][0][0];
       }
       vector<vector<double>> num = {{z}};
       zs.push_back(num);
@@ -491,7 +504,7 @@ class Dense : public Layer {
     vector<vector<vector<double>>> a{{{1}}, {{2}}, {{3}}};  // e.g. a[0] = {{1}};
 
     Dense d = Dense(3, 5);
-    d.weights = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, 0}, {0, 0, 0}};
+    d.weights = {{{1}, {0}, {0}}, {{0}, {1}, {0}}, {{0}, {0}, {1}}, {{0}, {0}, {0}}, {{0}, {0}, {0}}};
     d.biases = {0, 0, 0, 0, 0};
 
     vector<vector<vector<double>>> output = d.h(a);
@@ -505,7 +518,7 @@ class Dense : public Layer {
     vector<vector<vector<double>>> a2{{{1}}, {{2}}, {{3}}};
 
     Dense d2 = Dense(3, 5);
-    d2.weights = {{1, 1, 0}, {0, 1, 3}, {0, 0, 1}, {1, 0, 0}, {0, 2, 0}};
+    d2.weights = {{{1}, {1}, {0}}, {{0}, {1}, {3}}, {{0}, {0}, {1}}, {{1}, {0}, {0}}, {{0}, {2}, {0}}};
     d2.biases = {0, 0, 0, 0, 0};
 
     vector<vector<vector<double>>> output2 = d2.h(a2);
@@ -680,7 +693,7 @@ class ConvNet {
               Dense* next_dense = dynamic_cast<Dense*>(layers[L + 2]);
 
               for (int k = 0; k < next_dense->num_out; k++) {
-                double part_sum = next_dense->weights[k][i];
+                double part_sum = next_dense->weights[k][i][0];
                 part_sum *= da_L_dz_L_per_layer[L + 2][k][0][0];
                 part_sum *= (a[L + 3][k][0][0] - y_vector[k]);
 
@@ -725,10 +738,10 @@ class ConvNet {
           double epsilon{0.001};
 
           // Might be better to loop over descreasing values of epsilon
-          dense.weights[i][j] += epsilon;
+          dense.weights[i][j][0] += epsilon;
           double loss1 = model.Loss(X[0], Y[0]);
 
-          dense.weights[i][j] -= 2 * epsilon;
+          dense.weights[i][j][0] -= 2 * epsilon;
           double loss2 = model.Loss(X[0], Y[0]);
 
           double num_dLoss_dWs = (loss1 - loss2) / (2 * epsilon);
@@ -736,7 +749,7 @@ class ConvNet {
           cout << num_dLoss_dWs << endl;
           cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j] << endl;
 
-          dense.weights[i][j] += epsilon;
+          dense.weights[i][j][0] += epsilon;
         }
       }
     }
@@ -769,10 +782,10 @@ class ConvNet {
           double epsilon{.001};
 
           // Might be better to loop over descreasing values of epsilon
-          dense1.weights[i][j] += epsilon;
+          dense1.weights[i][j][0] += epsilon;
           double loss1 = model.Loss(X[0], Y[0]);
 
-          dense1.weights[i][j] -= 2 * epsilon;
+          dense1.weights[i][j][0] -= 2 * epsilon;
           double loss2 = model.Loss(X[0], Y[0]);
 
           double num_dLoss_dWs = (loss1 - loss2) / (2 * epsilon);
@@ -780,7 +793,7 @@ class ConvNet {
           cout << num_dLoss_dWs << endl;
           cout << "Difference in derivatives: " << num_dLoss_dWs - get<0>(dParam)[i][j] << endl;
 
-          dense1.weights[i][j] += epsilon;
+          dense1.weights[i][j][0] += epsilon;
         }
       }
     }
@@ -850,38 +863,38 @@ int main() {
   try {
     // Flat convolution test
     Conv::_convolve_test();
-    cout << "_convole_test done" << endl;
+    cout << "_convole_test done\n" << endl;
 
     // Depth convolution test
     Conv::convolve_test();
-    cout << "convole_test done" << endl;
+    cout << "convole_test done\n" << endl;
 
     // Flat max pool test
     MaxPool::_max_pool_test();
-    cout << "_max_pool_test done" << endl;
+    cout << "_max_pool_test done\n" << endl;
 
     // TODO: make a depth maxpool test if necessary
 
     Sigmoid::sigmoid_test();
-    cout << "sigmoid_test done" << endl;
+    cout << "sigmoid_test done\n" << endl;
 
     Relu::relu_test();
-    cout << "relu_test done" << endl;
+    cout << "relu_test done\n" << endl;
 
     Dense::h_test();
-    cout << "Dense h_test done" << endl;
+    cout << "Dense h_test done\n" << endl;
 
     ConvNet::h_test_1(X, Y);
-    cout << "ConvNet h_test1 done" << endl;
+    cout << "ConvNet h_test1 done\n" << endl;
 
     ConvNet::h_test_2(X, Y);
-    cout << "ConvNet h_test2 done" << endl;
+    cout << "ConvNet h_test2 done\n" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
   }
 
-  cout << "Tests finished!!!!\n";
+  cout << "Tests finished!!!!\n" << endl;
 
   // Main
 
