@@ -680,28 +680,28 @@ class ConvNet {
         dLoss/da_i^L = (a_i^L - y_i)            ok
 
         //TODO
-        dLoss/dB_i = dLoss/dh \sum_i^I dh/da_i da_i/dz_i dz_i/dB_i
-        ...
+        dLoss/dB_i^L = dz_i^L/dB_i^L * [da_i^L/dz_i^L * dLoss/da_i^L]
         */
 
         vector<vector<vector<double>>> dW(dense->num_out, vector<vector<double>>(dense->num_in, vector<double>(1, 0)));
-
-        // vector<int> aaaa(L, 1, 0, 0);
+        vector<double> dB(dense->num_out, 0);
 
         if (L == layers.size() - 2) {
           for (int i = 0; i < dense->num_out; i++) {
+            double sensitivity_path_val = da_L_dz_L_per_layer[L][i][0][0];
+            sensitivity_path_val *= (a[L + 1][i][0][0] - y_vector[i]);
+
+            layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}] = sensitivity_path_val;
+
             for (int j = 0; j < dense->num_in; j++) {
               dW[i][j][0] = a[L - 1][j][0][0];
-
-              double sensitivity_path_val = da_L_dz_L_per_layer[L][i][0][0];
-              sensitivity_path_val *= (a[L + 1][i][0][0] - y_vector[i]);
-
-              layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}] = sensitivity_path_val;
 
               dW[i][j][0] *= layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}];
               // dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0]; // to be reused
               // dW[i][j][0] *= (a[L + 1][i][0][0] - y_vector[i]); // to be reused
             }
+
+            dB[i] = layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}];
           }
         } else {  // runs when L = layers.size() - 4
                   /*
@@ -739,10 +739,8 @@ class ConvNet {
           }
         }
 
-        vector<double> dbiases(dense->num_out, 0);
-
-        tuple<vector<vector<vector<double>>>, vector<double>> dW_tuple = make_tuple(dW, dbiases);
-        dParam_per_layer.push_back(dW_tuple);
+        tuple<vector<vector<vector<double>>>, vector<double>> dParam_tuple = make_tuple(dW, dB);
+        dParam_per_layer.push_back(dParam_tuple);
       }
     }
     return dParam_per_layer;
@@ -786,6 +784,46 @@ class ConvNet {
 
           dense.weights[i][j][0] += epsilon;
         }
+      }
+    }
+  }
+
+  void static h_test_1_bias(vector<vector<vector<vector<double>>>> X, int Y[100]) {
+    Flatten flatten = Flatten();
+    Dense dense = Dense(2, 4);
+    Sigmoid sigmoid = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
+    // Do a forward pass with the first "image"
+    int label = model.predict(X[0]);
+    cout << label << endl;
+
+    if (!(label >= 0 && 10 > label)) {
+      throw(string) "Test failed! " + (string) __FUNCTION__;
+    }
+
+    vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
+    // (L(b+h) - L(b-h))/(2*h)
+
+    for (int i = 0; i < dense.num_out; i++) {
+      if (!(i == 0) && (rand() % 100) < 30) {
+        continue;
+      } else {
+        tuple<vector<vector<vector<double>>>, vector<double>> dParam = dParam_per_layer[0];
+        double epsilon{0.001};
+
+        // Might be better to loop over descreasing values of epsilon
+        dense.biases[i] += epsilon;
+        double loss1 = model.Loss(X[0], Y[0]);
+
+        dense.biases[i] -= 2 * epsilon;
+        double loss2 = model.Loss(X[0], Y[0]);
+
+        double num_dLoss_dBs = (loss1 - loss2) / (2 * epsilon);
+        cout << get<1>(dParam)[i] << endl;
+        cout << num_dLoss_dBs << endl;
+        cout << "Difference in derivatives: " << num_dLoss_dBs - get<1>(dParam)[i] << endl;
+
+        dense.biases[i] += epsilon;
       }
     }
   }
@@ -920,10 +958,13 @@ int main() {
     cout << "Dense h_test done\n" << endl;
 
     ConvNet::h_test_1(X, Y);
-    cout << "ConvNet h_test1 done\n" << endl;
+    cout << "ConvNet h_test_1 done\n" << endl;
 
-    ConvNet::h_test_2(X, Y);
-    cout << "ConvNet h_test2 done\n" << endl;
+    ConvNet::h_test_1_bias(X, Y);
+    cout << "ConvNet h_test_1_bias done\n" << endl;
+
+    // ConvNet::h_test_2(X, Y);
+    // cout << "ConvNet h_test2 done\n" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
