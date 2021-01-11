@@ -624,12 +624,12 @@ class ConvNet {
   vector<tuple<vector<vector<vector<double>>>, vector<double>>> _calc_dLoss_dParam(int y) {
     /*
     Return data type:
-    For every layer, we need a vector
-    Every layer has both weights and biases so you need a tuple of those
-    NOTE: might need to make all weights into boxes
-    */
+    Vector of a tuple of gradients, one per layer
+    First thing in the tuple is the tensor of weight derivatives
+    Second thing in the tuple is the vector of bias derivatives.
 
-    // vector<vector<vector<vector<double>>>> a;
+    NOTE: vector of biases might become a matrix of biases for the convolution layer.
+    */
 
     vector<vector<vector<vector<double>>>> da_L_dz_L_per_layer(layers.size(), {{{}}});
 
@@ -637,6 +637,8 @@ class ConvNet {
     y_vector[y] = 1;
 
     vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_per_layer;
+
+    map<vector<int>, double> layer_neuron_to_sensitivity;
 
     for (int L = layers.size() - 1; L >= 0; L--) {
       bool is_last_output_box = false;
@@ -682,13 +684,23 @@ class ConvNet {
         ...
         */
 
-        vector<vector<vector<double>>> dW(dense->num_out, vector<vector<double>>(dense->num_in, vector<double>(1,0)));
+        vector<vector<vector<double>>> dW(dense->num_out, vector<vector<double>>(dense->num_in, vector<double>(1, 0)));
+
+        // vector<int> aaaa(L, 1, 0, 0);
+
         if (L == layers.size() - 2) {
           for (int i = 0; i < dense->num_out; i++) {
             for (int j = 0; j < dense->num_in; j++) {
               dW[i][j][0] = a[L - 1][j][0][0];
-              dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0];
-              dW[i][j][0] *= (a[L + 1][i][0][0] - y_vector[i]);
+
+              double sensitivity_path_val = da_L_dz_L_per_layer[L][i][0][0];
+              sensitivity_path_val *= (a[L + 1][i][0][0] - y_vector[i]);
+
+              layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}] = sensitivity_path_val;
+
+              dW[i][j][0] *= layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}];
+              // dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0]; // to be reused
+              // dW[i][j][0] *= (a[L + 1][i][0][0] - y_vector[i]); // to be reused
             }
           }
         } else {  // runs when L = layers.size() - 4
@@ -701,7 +713,10 @@ class ConvNet {
           for (int i = 0; i < dense->num_out; i++) {
             for (int j = 0; j < dense->num_in; j++) {
               dW[i][j][0] = a[L - 1][j][0][0];
-              dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0];
+
+              double sensitivity_path_val = da_L_dz_L_per_layer[L][i][0][0];
+
+              // dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0];
 
               double sum = 0;
 
@@ -709,12 +724,17 @@ class ConvNet {
 
               for (int k = 0; k < next_dense->num_out; k++) {
                 double part_sum = next_dense->weights[k][i][0];
-                part_sum *= da_L_dz_L_per_layer[L + 2][k][0][0];
-                part_sum *= (a[L + 3][k][0][0] - y_vector[k]);
+                part_sum *= layer_neuron_to_sensitivity[vector<int>{L + 2, k, 0, 0}];
+                // part_sum *= da_L_dz_L_per_layer[L + 2][k][0][0];
+                // part_sum *= (a[L + 3][k][0][0] - y_vector[k]);
 
                 sum += part_sum;
               }
-              dW[i][j][0] *= sum;
+              sensitivity_path_val *= sum;
+
+              layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}] = sensitivity_path_val;
+
+              dW[i][j][0] *= layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}];
             }
           }
         }
