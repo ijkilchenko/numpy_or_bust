@@ -711,10 +711,10 @@ class ConvNet {
                   layers.size() - 4 Second to last (Dense) layer
                   */
           for (int i = 0; i < dense->num_out; i++) {
+            double sensitivity_path_val = da_L_dz_L_per_layer[L][i][0][0];
+
             for (int j = 0; j < dense->num_in; j++) {
               dW[i][j][0] = a[L - 1][j][0][0];
-
-              double sensitivity_path_val = da_L_dz_L_per_layer[L][i][0][0];
 
               // dW[i][j][0] *= da_L_dz_L_per_layer[L][i][0][0];
 
@@ -730,12 +730,13 @@ class ConvNet {
 
                 sum += part_sum;
               }
-              sensitivity_path_val *= sum;
+              double sensitivity_path_val_new = sensitivity_path_val * sum;
 
-              layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}] = sensitivity_path_val;
+              layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}] = sensitivity_path_val_new;
 
               dW[i][j][0] *= layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}];
             }
+            dB[i] = layer_neuron_to_sensitivity[vector<int>{L, i, 0, 0}];
           }
         }
 
@@ -872,6 +873,49 @@ class ConvNet {
     }
   }
 
+  void static h_test_2_bias(vector<vector<vector<vector<double>>>> X, int Y[100]) {
+    Flatten flatten = Flatten();
+    Dense dense1 = Dense(4, 4);
+    Sigmoid sigmoid1 = Sigmoid();
+    Dense dense2 = Dense(2, 4);
+    Sigmoid sigmoid2 = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
+    // Do a forward pass with the first "image"
+    int label = model.predict(X[0]);
+    cout << label << endl;
+
+    if (!(label >= 0 && 10 > label)) {
+      throw(string) "Test failed! " + (string) __FUNCTION__;
+    }
+
+    vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_per_layer = model._calc_dLoss_dParam(Y[0]);
+    // (L(b+h) - L(b-h))/(2*h)
+
+    for (int i = 0; i < dense1.num_out; i++) {
+      if (!(i == 0) && (rand() % 100) < 30) {
+        continue;
+      } else {
+        tuple<vector<vector<vector<double>>>, vector<double>> dParam = dParam_per_layer[1];
+        double epsilon{0.001};
+
+        // Might be better to loop over descreasing values of epsilon
+        dense1.biases[i] += epsilon;
+        double loss1 = model.Loss(X[0], Y[0]);
+
+        dense1.biases[i] -= 2 * epsilon;
+        double loss2 = model.Loss(X[0], Y[0]);
+
+        double num_dLoss_dBs = (loss1 - loss2) / (2 * epsilon);
+        cout << get<1>(dParam)[i] << endl;
+        cout << num_dLoss_dBs << endl;
+        cout << "Difference in derivatives: " << num_dLoss_dBs - get<1>(dParam)[i] << endl;
+
+        dense1.biases[i] += epsilon;
+      }
+    }
+  }
+
+
   void static h_test_3(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     // // Intialize model and evaluate an example test
     // // Compound literal, (vector[]), helps initialize an array in function call
@@ -963,8 +1007,11 @@ int main() {
     ConvNet::h_test_1_bias(X, Y);
     cout << "ConvNet h_test_1_bias done\n" << endl;
 
-    // ConvNet::h_test_2(X, Y);
-    // cout << "ConvNet h_test2 done\n" << endl;
+    ConvNet::h_test_2(X, Y);
+    cout << "ConvNet h_test2 done\n" << endl;
+
+    ConvNet::h_test_2_bias(X,Y);
+    cout << "ConvNet h_test_2_bias done \n" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
