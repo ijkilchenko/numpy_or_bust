@@ -59,13 +59,75 @@ class Layer {
     }
   }
 
+  vector<double> static add_vectors(vector<double> a, vector<double> b) {
+    vector<double> c(a.size(), 0);
+
+    for (int i = 0; i < a.size(); i++) {
+      c[i] = (a[i] + b[i]);
+    }
+
+    return c;
+  }
+
+  vector<double> static scalar_multiple(vector<double> a, double n) {
+    vector<double> c(a.size(), 0);
+
+    for (int i = 0; i < a.size(); i++) {
+      c[i] = n * (a[i]);
+    }
+
+    return c;
+  }
+
   vector<vector<double>> static add_matrices(vector<vector<double>> a, vector<vector<double>> b) {
     vector<vector<double>> c(a.size(), vector<double>(a[0].size(), 0));
 
     for (int i = 0; i < a.size(); i++) {
-      vector<double> c_column;
       for (int j = 0; j < a[0].size(); j++) {
         c[i][j] = (a[i][j] + b[i][j]);
+      }
+    }
+
+    return c;
+  }
+
+  vector<vector<double>> static scalar_multiple(vector<vector<double>> a, double n) {
+    vector<vector<double>> c(a.size(), vector<double>(a[0].size(), 0));
+
+    for (int i = 0; i < a.size(); i++) {
+      for (int j = 0; j < a[0].size(); j++) {
+        c[i][j] = n * (a[i][j]);
+      }
+    }
+
+    return c;
+  }
+
+  vector<vector<vector<double>>> static add_tensors(vector<vector<vector<double>>> a,
+                                                    vector<vector<vector<double>>> b) {
+    vector<vector<vector<double>>> c(a.size(), vector<vector<double>>(a[0].size(), vector<double>(a[0][0].size(), 0)));
+
+    vector<vector<vector<double>>> c_column;
+    for (int i = 0; i < a.size(); i++) {
+      for (int j = 0; j < a[0].size(); j++) {
+        for (int k = 0; k < a[0][0].size(); k++) {
+          c[i][j][k] = (a[i][j][k] + b[i][j][k]);
+        }
+      }
+    }
+
+    return c;
+  }
+
+  vector<vector<vector<double>>> static scalar_multiple(vector<vector<vector<double>>> a, double n) {
+    vector<vector<vector<double>>> c(a.size(), vector<vector<double>>(a[0].size(), vector<double>(a[0][0].size(), 0)));
+
+    vector<vector<vector<double>>> c_column;
+    for (int i = 0; i < a.size(); i++) {
+      for (int j = 0; j < a[0].size(); j++) {
+        for (int k = 0; k < a[0][0].size(); k++) {
+          c[i][j][k] = n * (a[i][j][k]);
+        }
       }
     }
 
@@ -620,56 +682,77 @@ class ConvNet {
 
     */
 
-    int num_steps = 100;
+    int num_steps = 1000;
+    double alpha = 0.005;
 
     for (int i = 0; i < num_steps; i++) {
-      vector<int> batch = take_minibatch(X.size(), 0.2, i);
+      vector<int> batch = take_minibatch(X.size(), 0.1);
 
       cout << "Current (total) Loss is " << TotalLoss(X, Y) << endl;
 
       vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_acc;
 
       for (int j = 0; j < batch.size(); j++) {
-        h(X[batch[j]]);
-        vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam = _calc_dLoss_dParam(Y[batch[j]]);
+        h(X[batch[j]]);  // Saves a bunch of variables that we need for the backward pass
+        vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_per_layer =
+            _calc_dLoss_dParam(Y[batch[j]]);
 
-        // Add dParam to dParam_acc;
+        if (j == 0) {
+          dParam_acc = dParam_per_layer;
+        } else {
+          for (int k = 0; k < dParam_per_layer.size(); k++) {
+            tuple<vector<vector<vector<double>>>, vector<double>> dParam = dParam_per_layer[k];
+
+            // Do the accumulation for weights
+            vector<vector<vector<double>>> weights = get<0>(dParam);
+            get<0>(dParam_acc[k]) = Layer::add_tensors(get<0>(dParam_acc[k]), weights);
+
+            // Do the accumulation for biases
+            vector<double> biases = get<1>(dParam);
+            get<1>(dParam_acc[k]) = Layer::add_vectors(get<1>(dParam_acc[k]), biases);
+          }
+        }
       }
-      // Divide dParam_acc by batch.size()
+      for (int k = 0; k < dParam_acc.size(); k++) {
+        get<0>(dParam_acc[k]) = Layer::scalar_multiple(get<0>(dParam_acc[k]), batch.size());
+        get<1>(dParam_acc[k]) = Layer::scalar_multiple(get<1>(dParam_acc[k]), batch.size());
+      }
 
-      // Update each layer's parameters
-      // for each layer,
-      //   if layer == Dense,
-      //      layer.weights += alpha * dParam_acc[0]
-      //      layer.biases += alpha * dParam_acc[1]
+      // Add tensor to weights (first part of the tuple) and vector (second part of tuple) to biases
+      // Do this for each layer (that's why dParam is a vector)
+
+      // Add dParam to dParam_acc;
+
+      int k = 0;
+      for (int L = layers.size() - 1; L >= 0; L--) {
+        bool is_last_output_box = false;
+        Layer* layer = layers[L];
+        if (Conv* conv = dynamic_cast<Conv*>(layer)) {
+        } else if (MaxPool* pool = dynamic_cast<MaxPool*>(layer)) {
+        } else if (Act* act = dynamic_cast<Act*>(layer)) {
+        } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
+        } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
+          dense->weights = Layer::add_tensors(dense->weights, Layer::scalar_multiple(get<0>(dParam_acc[k]), -1*alpha));
+
+          dense->biases = Layer::add_vectors(dense->biases, Layer::scalar_multiple(get<1>(dParam_acc[k]), -1*alpha));
+
+          k += 1;
+        }
+      }
     }
   }
 
-  vector<int> take_minibatch(int N, double r, int i) {
-    std::vector<int> v(N);                     // vector with 100 ints.
-    std::iota(std::begin(v), std::end(v), 0);  // Fill with 0, 1, ..., 99.
+  vector<int> take_minibatch(int N, double r) {
+    vector<int> v(N);                     // vector with 100 ints.
+    iota(std::begin(v), std::end(v), 0);  // Fill with 0, 1, ..., 99.
 
     int k = floor(N * r);  // size of each batch
 
-    // std::vector<int> sample;
-    // std::sample(v.begin(), v.end(),
-    //             std::back_inserter(sample),
-    //             5,
-    //             std::mt19937{std::random_device{}()});
+    vector<int> out;
+    size_t nelems = k;
+    std::sample(v.begin(), v.end(), std::back_inserter(out), nelems, std::mt19937{std::random_device{}()});
 
-    // [1, 2, 3, 4, ..., N]
-    // k = 3
-    // [1, 2, 3]
-    // [4, 5, 6]
-    // ...
-    // [N-1, N, 1]
-
-    vector<int> batch;
-    for (int j = k * i; j <= j + k; j++) {
-      batch.push_back(v[j % v.size()]);
-    }
-
-    return batch;
+    return out;
   }
 
   // Calculate the loss function
@@ -689,7 +772,7 @@ class ConvNet {
     return acc;
   }
 
-    // Calculate the loss function
+  // Calculate the loss function
   double TotalLoss(vector<vector<vector<vector<double>>>> X, int Y[]) {
     double acc{0};
 
@@ -994,24 +1077,12 @@ class ConvNet {
   }
 
   void static h_test_3(vector<vector<vector<vector<double>>>> X, int Y[100]) {
-    // // Intialize model and evaluate an example test
-    // // Compound literal, (vector[]), helps initialize an array in function call
-    // Conv conv = Conv(1, 2, (vector<int>){3, 3}, (vector<int>){1, 1});
-    // MaxPool pool = MaxPool(2);
-    // Relu relu = Relu();
-    // Flatten flatten = Flatten();
-    // Dense dense = Dense(10, 338);
-    // Sigmoid sigmoid = Sigmoid();
-    // ConvNet model = ConvNet(vector<Layer*>{&conv, &pool, &relu, &flatten, &dense, &sigmoid});
-    // // Do a forward pass with the first "image"
-    // int label = model.predict(X[0]);
-    // cout << label << endl;
+    Flatten flatten = Flatten();
+    Dense dense = Dense(2, 4);
+    Sigmoid sigmoid = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
 
-    // if (!(label >= 0 && 10 > label)) {
-    //   throw(string) "Test failed! " + (string) __FUNCTION__;
-    // }
-
-    // model._calc_dLoss_dWs();
+    model.fit(X, Y);
   }
 };
 
@@ -1089,6 +1160,9 @@ int main() {
 
     ConvNet::h_test_2_bias(X, Y);
     cout << "ConvNet h_test_2_bias done \n" << endl;
+
+    ConvNet::h_test_3(X, Y);
+    cout << "ConvNet h_test_3 done \n" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 0;  // Do not go past the first exception in a test
