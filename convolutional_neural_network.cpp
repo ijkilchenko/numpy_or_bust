@@ -16,6 +16,8 @@ using namespace std;
 // Good diagram:
 // https://engmrk.com/wp-content/uploads/2018/09/Image-Architecture-of-Convolutional-Neural-Network.png
 
+bool be_random = true;
+
 class Layer {
  public:
   virtual ~Layer() = default;
@@ -24,8 +26,6 @@ class Layer {
 
   // Helper functions
   static void rand_init(vector<vector<vector<double>>>& tensor, int height, int width) {
-    srand(time(NULL));  // Remove to stop seeding rand()
-
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
         // use numbers between -10 and 10
@@ -37,8 +37,6 @@ class Layer {
   }
 
   static void rand_init(vector<vector<double>>& matrix, int height, int width) {
-    srand(time(NULL));  // Remove to stop seeding rand()
-
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
         // use numbers between -10 and 10
@@ -50,7 +48,6 @@ class Layer {
   }
 
   static void rand_init(vector<double>& matrix, int length) {
-    srand(time(NULL));  // Remove to stop seeding rand()
     for (int i = 0; i < length; i++) {
       // use numbers between -10 and 10
       double n = (double)rand() / RAND_MAX;  // scales rand() to [0, 1].
@@ -682,13 +679,16 @@ class ConvNet {
 
     */
 
-    int num_steps = 1000;
-    double alpha = 0.005;
+    int num_steps = 100;
+    double alpha = 0.01;
+    double minibatch_ratio = 0.1;
 
     for (int i = 0; i < num_steps; i++) {
-      vector<int> batch = take_minibatch(X.size(), 0.1);
+      vector<int> batch = take_minibatch(X.size(), minibatch_ratio);
 
-      cout << "Current (total) Loss is " << TotalLoss(X, Y) << endl;
+      if (i % 10 == 0) {
+        cout << "Step: " << i << ". Current (total) Loss is " << TotalLoss(X, Y) << endl;
+      }
 
       vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_acc;
 
@@ -732,9 +732,10 @@ class ConvNet {
         } else if (Act* act = dynamic_cast<Act*>(layer)) {
         } else if (Flatten* flatten = dynamic_cast<Flatten*>(layer)) {
         } else if (Dense* dense = dynamic_cast<Dense*>(layer)) {
-          dense->weights = Layer::add_tensors(dense->weights, Layer::scalar_multiple(get<0>(dParam_acc[k]), -1*alpha));
+          dense->weights =
+              Layer::add_tensors(dense->weights, Layer::scalar_multiple(get<0>(dParam_acc[k]), -1 * alpha));
 
-          dense->biases = Layer::add_vectors(dense->biases, Layer::scalar_multiple(get<1>(dParam_acc[k]), -1*alpha));
+          dense->biases = Layer::add_vectors(dense->biases, Layer::scalar_multiple(get<1>(dParam_acc[k]), -1 * alpha));
 
           k += 1;
         }
@@ -750,7 +751,11 @@ class ConvNet {
 
     vector<int> out;
     size_t nelems = k;
-    std::sample(v.begin(), v.end(), std::back_inserter(out), nelems, std::mt19937{std::random_device{}()});
+    if (be_random) {
+      std::sample(v.begin(), v.end(), std::back_inserter(out), nelems, std::mt19937{std::random_device{}()});
+    } else {
+      std::sample(v.begin(), v.end(), std::back_inserter(out), nelems, std::mt19937{});
+    }
 
     return out;
   }
@@ -840,7 +845,6 @@ class ConvNet {
 
         dLoss/da_i^L = (a_i^L - y_i)            ok
 
-        //TODO
         dLoss/dB_i^L = dz_i^L/dB_i^L * [da_i^L/dz_i^L * dLoss/da_i^L]
         */
 
@@ -910,7 +914,7 @@ class ConvNet {
 
   void static h_test_1(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(2, 4);
+    Dense dense = Dense(2, 16);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -952,7 +956,7 @@ class ConvNet {
 
   void static h_test_1_bias(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(2, 4);
+    Dense dense = Dense(2, 16);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -992,9 +996,9 @@ class ConvNet {
 
   void static h_test_2(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense1 = Dense(4, 4);
+    Dense dense1 = Dense(8, 16);
     Sigmoid sigmoid1 = Sigmoid();
-    Dense dense2 = Dense(2, 4);
+    Dense dense2 = Dense(2, 8);
     Sigmoid sigmoid2 = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
     // Do a forward pass with the first "image"
@@ -1036,9 +1040,9 @@ class ConvNet {
 
   void static h_test_2_bias(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense1 = Dense(4, 4);
+    Dense dense1 = Dense(8, 16);
     Sigmoid sigmoid1 = Sigmoid();
-    Dense dense2 = Dense(2, 4);
+    Dense dense2 = Dense(2, 8);
     Sigmoid sigmoid2 = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
     // Do a forward pass with the first "image"
@@ -1076,9 +1080,9 @@ class ConvNet {
     }
   }
 
-  void static h_test_3(vector<vector<vector<vector<double>>>> X, int Y[100]) {
+  void static fit_test_1(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(2, 4);
+    Dense dense = Dense(2, 16);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
 
@@ -1087,6 +1091,12 @@ class ConvNet {
 };
 
 int main() {
+  if (be_random) {
+    srand(time(NULL));
+  } else {
+    srand(2021);
+  }
+
   // TESTS
   // set up
 
@@ -1098,9 +1108,9 @@ int main() {
   for (int i = 0; i < num_images; i++) {
     vector<vector<vector<double>>> image;
     vector<vector<double>> channel;  // Only one channel per image here.
-    for (int j = 0; j < 2; j++) {
+    for (int j = 0; j < 4; j++) {
       vector<double> row;
-      for (int k = 0; k < 2; k++) {
+      for (int k = 0; k < 4; k++) {
         double f = (double)rand() / RAND_MAX;
         double num = f;  // should be from 0 to 255 but scaled to [0, 1]
         row.push_back(num);
@@ -1161,11 +1171,11 @@ int main() {
     ConvNet::h_test_2_bias(X, Y);
     cout << "ConvNet h_test_2_bias done \n" << endl;
 
-    ConvNet::h_test_3(X, Y);
-    cout << "ConvNet h_test_3 done \n" << endl;
+    ConvNet::fit_test_1(X, Y);
+    cout << "ConvNet fit_test_1 done \n" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
-    return 0;  // Do not go past the first exception in a test
+    return 1;  // Do not go past the first exception in a test
   }
 
   cout << "Tests finished!!!!\n" << endl;
