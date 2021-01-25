@@ -1,6 +1,6 @@
 #include <math.h>
 
-#include <experimental/algorithm>
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <map>
