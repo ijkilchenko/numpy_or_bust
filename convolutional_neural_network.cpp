@@ -654,14 +654,14 @@ class ConvNet {
 
     // Take argmax of the output
     int label = 0;
-    cout << feature_map[0][0][0] << ",";
+    // cout << feature_map[0][0][0] << ",";
     for (int i = 1; i < feature_map.size(); i++) {
-      cout << feature_map[i][0][0] << ",";
+      // cout << feature_map[i][0][0] << ",";
       if (feature_map[label][0][0] < feature_map[i][0][0]) {
         label = i;
       }
     }
-    cout << endl;
+    // cout << endl;
 
     return label;
   }
@@ -687,7 +687,7 @@ class ConvNet {
       vector<int> batch = take_minibatch(X.size(), minibatch_ratio);
 
       if (i % 10 == 0) {
-        cout << "Step: " << i << ". Current (total) Loss is " << TotalLoss(X, Y) << endl;
+        cout << "Step: " << i << ". Loss is " << TotalLoss(X, Y) << ". Accuracy is " << TotalAccuracy(X, Y) << endl;
       }
 
       vector<tuple<vector<vector<vector<double>>>, vector<double>>> dParam_acc;
@@ -741,6 +741,7 @@ class ConvNet {
         }
       }
     }
+    cout << "Step: " << num_steps-1 << ". Loss is " << TotalLoss(X, Y) << ". Accuracy is " << TotalAccuracy(X, Y) << endl;
   }
 
   vector<int> take_minibatch(int N, double r) {
@@ -758,6 +759,30 @@ class ConvNet {
     }
 
     return out;
+  }
+
+  // Calculate the accuracy per example
+  double Accuracy(vector<vector<vector<double>>> x, int y) {
+    if (y == 10) {
+      throw(string) "Mismatch between label definition in Loss and incoming label!";
+    }
+    int label = predict(x);
+
+    if (label == y) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+
+  // Calculate the accuracy
+  double TotalAccuracy(vector<vector<vector<vector<double>>>> X, int Y[]) {
+    double acc{0};
+
+    for (int i = 0; i < X.size(); i++) {
+      acc += Accuracy(X[i], Y[i]);
+    }
+    return acc;
   }
 
   // Calculate the loss function
@@ -914,7 +939,7 @@ class ConvNet {
 
   void static h_test_1(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(2, 16);
+    Dense dense = Dense(2, 64);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -956,7 +981,7 @@ class ConvNet {
 
   void static h_test_1_bias(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(2, 16);
+    Dense dense = Dense(2, 64);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
     // Do a forward pass with the first "image"
@@ -996,9 +1021,9 @@ class ConvNet {
 
   void static h_test_2(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense1 = Dense(8, 16);
+    Dense dense1 = Dense(32, 64);
     Sigmoid sigmoid1 = Sigmoid();
-    Dense dense2 = Dense(2, 8);
+    Dense dense2 = Dense(2, 32);
     Sigmoid sigmoid2 = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
     // Do a forward pass with the first "image"
@@ -1040,9 +1065,9 @@ class ConvNet {
 
   void static h_test_2_bias(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense1 = Dense(8, 16);
+    Dense dense1 = Dense(32, 64);
     Sigmoid sigmoid1 = Sigmoid();
-    Dense dense2 = Dense(2, 8);
+    Dense dense2 = Dense(2, 32);
     Sigmoid sigmoid2 = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
     // Do a forward pass with the first "image"
@@ -1082,9 +1107,20 @@ class ConvNet {
 
   void static fit_test_1(vector<vector<vector<vector<double>>>> X, int Y[100]) {
     Flatten flatten = Flatten();
-    Dense dense = Dense(2, 16);
+    Dense dense = Dense(2, 64);
     Sigmoid sigmoid = Sigmoid();
     ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense, &sigmoid});
+
+    model.fit(X, Y);
+  }
+
+  void static fit_test_2(vector<vector<vector<vector<double>>>> X, int Y[100]) {
+    Flatten flatten = Flatten();
+    Dense dense1 = Dense(32, 64);
+    Sigmoid sigmoid1 = Sigmoid();
+    Dense dense2 = Dense(2, 32);
+    Sigmoid sigmoid2 = Sigmoid();
+    ConvNet model = ConvNet(vector<Layer*>{&flatten, &dense1, &sigmoid1, &dense2, &sigmoid2});
 
     model.fit(X, Y);
   }
@@ -1108,9 +1144,9 @@ int main() {
   for (int i = 0; i < num_images; i++) {
     vector<vector<vector<double>>> image;
     vector<vector<double>> channel;  // Only one channel per image here.
-    for (int j = 0; j < 4; j++) {
+    for (int j = 0; j < 8; j++) {
       vector<double> row;
-      for (int k = 0; k < 4; k++) {
+      for (int k = 0; k < 8; k++) {
         double f = (double)rand() / RAND_MAX;
         double num = f;  // should be from 0 to 255 but scaled to [0, 1]
         row.push_back(num);
@@ -1119,7 +1155,7 @@ int main() {
     }
     image.push_back(channel);
     X.push_back(image);
-    Y[i] = rand() % 2;  // TODO: Maybe decrease number of classes for the test?
+    Y[i] = rand() % 3;  // TODO: Maybe decrease number of classes for the test?
   }
 
   // Look at first 2 "images"
@@ -1173,6 +1209,9 @@ int main() {
 
     ConvNet::fit_test_1(X, Y);
     cout << "ConvNet fit_test_1 done \n" << endl;
+
+    ConvNet::fit_test_2(X, Y);
+    cout << "ConvNet fit_test_2 done \n" << endl;
   } catch (string my_exception) {
     cout << my_exception << endl;
     return 1;  // Do not go past the first exception in a test
